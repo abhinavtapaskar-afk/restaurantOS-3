@@ -1,12 +1,13 @@
+
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
+// Import useParams correctly from react-router-dom
 import { useParams } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
 import { Restaurant, MenuItem, Review, CartItem } from '../../types';
-import { Plus, Minus, ShoppingCart, X, Star, MapPin, Clock, Phone } from 'lucide-react';
+import { Plus, Minus, ShoppingCart, X, Star, MapPin, Clock, Phone, Navigation } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import Modal from '../ui/Modal';
 
-// --- Cart Context & Components (as before, no changes needed here) ---
 interface CartContextType { cart: CartItem[]; addToCart: (item: MenuItem) => void; removeFromCart: (itemId: string) => void; updateQuantity: (itemId: string, quantity: number) => void; clearCart: () => void; total: number; itemCount: number; }
 const CartContext = createContext<CartContextType | undefined>(undefined);
 export const useCart = () => { const context = useContext(CartContext); if (!context) throw new Error('useCart must be used within a CartProvider'); return context; };
@@ -14,12 +15,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [cart, setCart] = useState<CartItem[]>([]);
     const addToCart = (item: MenuItem) => { setCart(prev => { const existing = prev.find(i => i.id === item.id); return existing ? prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i) : [...prev, { ...item, quantity: 1 }]; }); };
     const removeFromCart = (itemId: string) => { setCart(prev => prev.filter(i => i.id !== itemId)); };
-    const updateQuantity = (itemId: string, quantity: number) => { if (quantity <= 0) { removeFromCart(itemId); } else { setCart(prev => prev.map(i => i.id === itemId ? { ...i, quantity } : i)); } };
+    const updateQuantity = (itemId: string, quantity: number) => { if (quantity <= 0) { removeFromCart(itemId); } else { setCart(prev => prev.map(i => i.id === itemId ? { ...i, quantity } : i)) } };
     const clearCart = () => setCart([]);
     const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
     return (<CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQuantity, clearCart, total, itemCount }}>{children}</CartContext.Provider>);
 };
+
 const CartSidebar: React.FC<{ isOpen: boolean, onClose: () => void, themeColor: string }> = ({ isOpen, onClose, themeColor }) => {
     const { cart, updateQuantity, total, itemCount } = useCart();
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -56,28 +58,131 @@ const CartSidebar: React.FC<{ isOpen: boolean, onClose: () => void, themeColor: 
         {isCheckoutOpen && <CheckoutModal onClose={() => setIsCheckoutOpen(false)} themeColor={themeColor} />}
     </>);
 };
+
 const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ onClose, themeColor }) => {
     const { cart, total, clearCart } = useCart();
     const { slug } = useParams<{ slug: string }>();
+    const [customer, setCustomer] = useState<any>(null);
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [address, setAddress] = useState('');
+    const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
+    const [isLocating, setIsLocating] = useState(false);
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); setIsPlacingOrder(true);
-        const { data: restaurantData } = await supabase.from('restaurants').select('id').eq('slug', slug).single();
-        if (!restaurantData) { alert("Restaurant not found."); setIsPlacingOrder(false); return; }
-        const newOrder = { restaurant_id: restaurantData.id, customer_name: name, customer_phone: phone, customer_address: address, total_amount: total, order_details: cart, status: 'pending' as const };
-        const { error } = await supabase.from('orders').insert(newOrder);
-        if (error) { alert('Could not place order. Please try again.'); } else { alert('Order placed successfully!'); clearCart(); onClose(); }
-        setIsPlacingOrder(false);
+
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session?.user) {
+                setCustomer(session.user);
+                setName(session.user.user_metadata.full_name || '');
+            }
+        });
+    }, []);
+
+    const handleGoogleLogin = async () => {
+        try {
+            const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } });
+            if (error) throw error;
+        } catch (err) {
+            console.error('[Checkout] OAuth Error:', err);
+        }
     };
+
+    const detectLocation = () => {
+        setIsLocating(true);
+        if (!navigator.geolocation) {
+            alert("Geolocation is not supported by your browser");
+            setIsLocating(false);
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+                setIsLocating(false);
+            },
+            (error) => {
+                console.error('[Checkout] Geolocation error:', error);
+                alert("Could not detect location. Please check your permissions.");
+                setIsLocating(false);
+            },
+            { enableHighAccuracy: true }
+        );
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsPlacingOrder(true);
+        try {
+            const { data: restaurantData } = await supabase.from('restaurants').select('id').eq('slug', slug).single();
+            if (!restaurantData) throw new Error("Restaurant not found.");
+
+            const newOrder = {
+                restaurant_id: restaurantData.id,
+                customer_name: name,
+                customer_phone: phone,
+                customer_address: address,
+                customer_lat: location?.lat,
+                customer_lng: location?.lng,
+                total_amount: total,
+                order_details: cart,
+                status: 'pending' as const
+            };
+
+            const { error } = await supabase.from('orders').insert(newOrder);
+            if (error) throw error;
+
+            alert('Order placed successfully!');
+            clearCart();
+            onClose();
+        } catch (err: any) {
+            console.error('[Checkout] Submit Error:', err);
+            alert(`Could not place order: ${err.message}`);
+        } finally {
+            setIsPlacingOrder(false);
+        }
+    };
+
     return (
-        <Modal isOpen={true} onClose={onClose} title="Checkout">
+        <Modal isOpen={true} onClose={onClose} title="Complete Your Order">
+            {!customer ? (
+                <div className="space-y-4 text-center">
+                    <p className="text-slate-400">Sign in to automatically fill your details.</p>
+                    <button onClick={handleGoogleLogin} className="w-full flex items-center justify-center gap-3 bg-white text-slate-900 font-bold py-3 rounded-lg hover:bg-slate-100 transition-colors">
+                        <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
+                        Sign in with Google
+                    </button>
+                    <div className="relative py-2">
+                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-800"></div></div>
+                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-slate-900 px-2 text-slate-500">Or continue as guest</span></div>
+                    </div>
+                </div>
+            ) : (
+                <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-md flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center font-bold text-white">
+                        {name[0]?.toUpperCase()}
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold text-white">Signed in as {name}</p>
+                        <p className="text-xs text-slate-400">{customer.email}</p>
+                    </div>
+                </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
-                <input type="text" placeholder="Your Name" value={name} onChange={e => setName(e.target.value)} required className="w-full bg-slate-800 p-2 rounded-md border border-slate-700"/>
+                <input type="text" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} required className="w-full bg-slate-800 p-2 rounded-md border border-slate-700"/>
                 <input type="tel" placeholder="Phone Number" value={phone} onChange={e => setPhone(e.target.value)} required className="w-full bg-slate-800 p-2 rounded-md border border-slate-700"/>
-                <textarea placeholder="Delivery Address" value={address} onChange={e => setAddress(e.target.value)} required className="w-full bg-slate-800 p-2 rounded-md border border-slate-700" rows={3}/>
+                
+                <div className="space-y-2">
+                    <div className="flex gap-2">
+                        <textarea placeholder="Delivery Address" value={address} onChange={e => setAddress(e.target.value)} required className="flex-1 bg-slate-800 p-2 rounded-md border border-slate-700" rows={2}/>
+                        <button type="button" onClick={detectLocation} disabled={isLocating} className={cn("px-4 rounded-md border border-slate-700 transition-colors flex items-center justify-center", location ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-slate-800 text-slate-400")}>
+                            {isLocating ? <div className="animate-spin h-5 w-5 border-2 border-emerald-500 border-t-transparent rounded-full" /> : <Navigation size={20} />}
+                        </button>
+                    </div>
+                    {location && <p className="text-[10px] text-emerald-400 text-right">✓ Accurate location captured ({location.lat.toFixed(4)}, {location.lng.toFixed(4)})</p>}
+                </div>
+
                 <button type="submit" disabled={isPlacingOrder} className={`w-full bg-${themeColor}-600 text-white font-bold py-3 rounded-lg hover:bg-${themeColor}-500 disabled:bg-slate-700`}>{isPlacingOrder ? 'Placing Order...' : `Place Order (₹${total.toFixed(2)})`}</button>
             </form>
         </Modal>
@@ -95,7 +200,6 @@ const fontClasses: Record<string, string> = {
     'Lato': 'font-lato',
 };
 
-// --- Main Page Component ---
 const PublicMenuPageContent: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -109,16 +213,22 @@ const PublicMenuPageContent: React.FC = () => {
     const fetchData = useCallback(async () => {
         if (!slug) { setError("Restaurant not specified."); setLoading(false); return; }
         setLoading(true);
-        const { data: restaurantData, error: restaurantError } = await supabase.from('restaurants').select('*').eq('slug', slug).single();
-        if (restaurantError || !restaurantData) { setError("Restaurant not found."); } 
-        else {
+        try {
+            const { data: restaurantData, error: restaurantError } = await supabase.from('restaurants').select('*').eq('slug', slug).maybeSingle();
+            if (restaurantError) throw restaurantError;
+            if (!restaurantData) throw new Error("Restaurant not found.");
+
             setRestaurant(restaurantData);
             const { data: menuData } = await supabase.from('menu_items').select('*').eq('restaurant_id', restaurantData.id).eq('is_available', true).order('category');
             if(menuData) setMenuItems(menuData);
             const { data: reviewData } = await supabase.from('reviews').select('*').eq('restaurant_id', restaurantData.id).eq('is_visible', true).order('created_at', { ascending: false });
             if(reviewData) setReviews(reviewData);
+        } catch (err: any) {
+            console.error('[PublicMenu] Error fetching data:', err);
+            setError(err.message);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }, [slug]);
 
     useEffect(() => { fetchData() }, [fetchData]);
@@ -133,7 +243,7 @@ const PublicMenuPageContent: React.FC = () => {
         }
     }, [restaurant?.font]);
 
-    if (loading) return <div className="text-center p-10">Loading...</div>;
+    if (loading) return <div className="text-center p-10 text-slate-400">Loading...</div>;
     if (error) return <div className="text-center p-10 text-red-400">{error}</div>;
     if (!restaurant) return null;
 
@@ -142,7 +252,7 @@ const PublicMenuPageContent: React.FC = () => {
     const groupedMenu = menuItems.reduce((acc, item) => { const cat = item.category || 'Other'; if (!acc[cat]) acc[cat] = []; acc[cat].push(item); return acc; }, {} as Record<string, MenuItem[]>);
 
     return (
-        <div className={cn("min-h-screen bg-slate-950 text-slate-300", fontClass)}>
+        <div className={cn("min-h-screen bg-slate-950 text-slate-300 pb-24", fontClass)}>
             <header className="h-96 bg-cover bg-center relative" style={{ backgroundImage: `url(${restaurant.hero_image_url || '/placeholder-hero.jpg'})` }}>
                 <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-center p-4">
                     <h1 className="text-5xl md:text-7xl font-bold text-white">{restaurant.hero_title || restaurant.name}</h1>
@@ -227,7 +337,7 @@ const PublicMenuPageContent: React.FC = () => {
                 <p className="whitespace-pre-line">{restaurant.opening_hours}</p>
             </footer>
 
-            <button onClick={() => setIsCartOpen(true)} className={`fixed bottom-6 right-6 bg-${themeColor}-600 text-white rounded-full p-4 shadow-lg hover:bg-${themeColor}-500 transition-transform hover:scale-110`}>
+            <button onClick={() => setIsCartOpen(true)} className={`fixed bottom-6 right-6 bg-${themeColor}-600 text-white rounded-full p-4 shadow-lg hover:bg-${themeColor}-500 transition-transform hover:scale-110 z-50`}>
                 <ShoppingCart size={28} />
                 {itemCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">{itemCount}</span>}
             </button>

@@ -1,4 +1,6 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
+// Explicitly import Link for the compiler
 import { Link } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';

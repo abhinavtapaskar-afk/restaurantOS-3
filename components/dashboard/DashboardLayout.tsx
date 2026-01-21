@@ -1,4 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
+// Clearly list named exports from react-router-dom
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Utensils, ShoppingCart, Settings, Heart, LogOut, User as UserIcon, ExternalLink, Star } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';

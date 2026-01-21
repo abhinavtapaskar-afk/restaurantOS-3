@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
@@ -5,7 +6,6 @@ import { Restaurant } from '../../types';
 import { cn } from '../../lib/utils';
 import { Check } from 'lucide-react';
 
-// --- Reusable Form Components (Moved outside SettingsPage to prevent re-creation on render, fixing the focus bug) ---
 const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...props }, ref) => (
     <input className={cn("block w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-800 disabled:cursor-not-allowed", className)} ref={ref} {...props} />
@@ -27,7 +27,6 @@ const SectionHeader: React.FC<{ title: string, subtitle: string }> = ({ title, s
     </div>
 );
 
-// --- Theme & Font Options ---
 const themes = [
     { name: 'emerald', color: 'bg-emerald-500' },
     { name: 'sky', color: 'bg-sky-500' },
@@ -41,7 +40,6 @@ const fonts = [
     { name: 'Lato', className: 'font-lato' },
 ];
 
-// --- Main Settings Page Component ---
 const SettingsPage: React.FC = () => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
@@ -49,7 +47,6 @@ const SettingsPage: React.FC = () => {
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-    // Form state
     const [formState, setFormState] = useState({
         name: '', city: 'Nanded', subdomain: '', address: '', phone: '', about: '',
         theme_color: 'emerald', font: 'Inter', hero_title: '', hero_subtitle: '',
@@ -62,7 +59,6 @@ const SettingsPage: React.FC = () => {
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { id, value } = e.target;
         if (id === 'name') {
-            // When name changes, automatically update subdomain as well
             setFormState(prev => ({ ...prev, name: value, subdomain: createSlug(value) }));
         } else {
             setFormState(prev => ({ ...prev, [id]: value }));
@@ -72,21 +68,26 @@ const SettingsPage: React.FC = () => {
     const fetchRestaurant = useCallback(async () => {
         if (!user) return;
         setLoading(true);
-        const { data } = await supabase.from('restaurants').select('*').eq('owner_id', user.id).single();
-        if (data) {
-            setRestaurant(data);
-            setFormState({
-                name: data.name || '', city: data.city || 'Nanded', subdomain: data.subdomain || '',
-                address: data.address || '', phone: data.phone_number || '', about: data.about_us || '',
-                theme_color: data.theme_color || 'emerald', font: data.font || 'Inter',
-                hero_title: data.hero_title || '', hero_subtitle: data.hero_subtitle || '',
-                opening_hours: data.opening_hours || '', google_maps_url: data.google_maps_url || '',
-            });
-        } else {
-            // For new restaurants, initialize subdomain from name
-            setFormState(prev => ({...prev, subdomain: createSlug(prev.name)}));
+        try {
+            const { data, error } = await supabase.from('restaurants').select('*').eq('owner_id', user.id).maybeSingle();
+            if (error) throw error;
+            if (data) {
+                setRestaurant(data);
+                setFormState({
+                    name: data.name || '', city: data.city || 'Nanded', subdomain: data.subdomain || '',
+                    address: data.address || '', phone: data.phone_number || '', about: data.about_us || '',
+                    theme_color: data.theme_color || 'emerald', font: data.font || 'Inter',
+                    hero_title: data.hero_title || '', hero_subtitle: data.hero_subtitle || '',
+                    opening_hours: data.opening_hours || '', google_maps_url: data.google_maps_url || '',
+                });
+            } else {
+                setFormState(prev => ({...prev, subdomain: createSlug(prev.name)}));
+            }
+        } catch (err: any) {
+            console.error('[SettingsPage] Error fetching restaurant:', err);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     }, [user]);
 
     useEffect(() => { fetchRestaurant() }, [fetchRestaurant]);
@@ -97,46 +98,51 @@ const SettingsPage: React.FC = () => {
         setSaving(true);
         setMessage(null);
 
-        let hero_image_url = restaurant?.hero_image_url;
-        if (heroImageFile) {
-            const filePath = `public/${restaurant?.id || user.id}/hero-${Date.now()}`;
-            const { error: uploadError } = await supabase.storage.from('restaurant-assets').upload(filePath, heroImageFile);
-            if (uploadError) {
-                setMessage({ type: 'error', text: `Image upload failed: ${uploadError.message}` });
-                setSaving(false); return;
+        try {
+            let hero_image_url = restaurant?.hero_image_url;
+            if (heroImageFile) {
+                const filePath = `public/${restaurant?.id || user.id}/hero-${Date.now()}`;
+                const { error: uploadError } = await supabase.storage.from('restaurant-assets').upload(filePath, heroImageFile);
+                if (uploadError) throw uploadError;
+                
+                const { data: { publicUrl } } = supabase.storage.from('restaurant-assets').getPublicUrl(filePath);
+                hero_image_url = publicUrl;
             }
-            const { data: { publicUrl } } = supabase.storage.from('restaurant-assets').getPublicUrl(filePath);
-            hero_image_url = publicUrl;
-        }
 
-        const restaurantData = {
-            name: formState.name, city: formState.city, address: formState.address, phone_number: formState.phone,
-            about_us: formState.about, theme_color: formState.theme_color, font: formState.font,
-            hero_title: formState.hero_title, hero_subtitle: formState.hero_subtitle, hero_image_url,
-            opening_hours: formState.opening_hours, google_maps_url: formState.google_maps_url,
-            subdomain: formState.subdomain
-        };
+            const upsertData = {
+                id: restaurant?.id || undefined, // Allow Supabase to handle UUID generation for new rows
+                owner_id: user.id,
+                name: formState.name,
+                city: formState.city,
+                address: formState.address,
+                phone_number: formState.phone,
+                about_us: formState.about,
+                theme_color: formState.theme_color,
+                font: formState.font,
+                hero_title: formState.hero_title,
+                hero_subtitle: formState.hero_subtitle,
+                hero_image_url,
+                opening_hours: formState.opening_hours,
+                google_maps_url: formState.google_maps_url,
+                subdomain: formState.subdomain,
+                slug: restaurant?.slug || (createSlug(formState.name) + '-' + Math.random().toString(36).substring(2, 8))
+            };
 
-        let error;
-        if (restaurant) {
-            const { error: updateError } = await supabase.from('restaurants').update(restaurantData).eq('id', restaurant.id);
-            error = updateError;
-        } else {
-            const slug = createSlug(formState.name) + '-' + Math.random().toString(36).substring(2, 8);
-            const { error: insertError } = await supabase.from('restaurants').insert({ ...restaurantData, slug, owner_id: user.id });
-            error = insertError;
-        }
+            const { error } = await supabase.from('restaurants').upsert(upsertData, { onConflict: 'owner_id' });
+            
+            if (error) throw error;
 
-        if (error) {
-            setMessage({ type: 'error', text: `Save failed: ${error.message}` });
-        } else {
             setMessage({ type: 'success', text: 'Settings saved successfully!' });
             fetchRestaurant();
+        } catch (err: any) {
+            console.error('[SettingsPage] Error saving settings:', err);
+            setMessage({ type: 'error', text: `Save failed: ${err.message}` });
+        } finally {
+            setSaving(false);
         }
-        setSaving(false);
     };
 
-    if (loading) return <div>Loading settings...</div>;
+    if (loading) return <div className="p-8 text-center text-slate-400">Loading settings...</div>;
 
     return (
         <div>

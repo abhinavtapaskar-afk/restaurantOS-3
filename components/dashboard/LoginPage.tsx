@@ -1,6 +1,4 @@
-
 import React, { useState } from 'react';
-// Ensure useNavigate is properly imported
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
 import { UtensilsCrossed } from 'lucide-react';
