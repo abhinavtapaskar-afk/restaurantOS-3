@@ -1,7 +1,6 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Utensils, ShoppingCart, Settings, Heart, LogOut, User as UserIcon } from 'lucide-react';
+import { LayoutDashboard, Utensils, ShoppingCart, Settings, Heart, LogOut, User as UserIcon, ExternalLink } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../services/supabase';
 
@@ -15,6 +14,23 @@ const navLinks = [
 const DashboardLayout: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [restaurantSlug, setRestaurantSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchRestaurantSlug = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('restaurants')
+        .select('slug')
+        .eq('owner_id', user.id)
+        .single();
+      if (data) {
+        setRestaurantSlug(data.slug);
+      }
+    };
+    fetchRestaurantSlug();
+  }, [user]);
+
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -61,7 +77,15 @@ const DashboardLayout: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        <header className="flex items-center justify-end h-16 px-6 bg-slate-900 border-b border-slate-800">
+        <header className="flex items-center justify-between h-16 px-6 bg-slate-900 border-b border-slate-800">
+           <div>
+            {restaurantSlug && (
+              <Link to={`/menu/${restaurantSlug}`} target="_blank" className="flex items-center gap-2 text-sm text-emerald-500 hover:underline">
+                View Public Menu
+                <ExternalLink size={16} />
+              </Link>
+            )}
+           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm">{user?.email}</span>
             <div className="p-2 bg-slate-800 rounded-full">

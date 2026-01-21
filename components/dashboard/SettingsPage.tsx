@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
@@ -8,10 +7,19 @@ const SettingsPage: React.FC = () => {
   const { user } = useAuth();
   const [name, setName] = useState('');
   const [city, setCity] = useState('Nanded');
+  const [subdomain, setSubdomain] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [message, setMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+
+  const createSlug = (text: string) => {
+    return text
+      .toLowerCase()
+      .replace(/&/g, 'and')
+      .replace(/ /g, '-')
+      .replace(/[^\w-]+/g, '');
+  };
 
   const fetchRestaurant = useCallback(async () => {
     if (!user) return;
@@ -26,6 +34,7 @@ const SettingsPage: React.FC = () => {
       setRestaurant(data);
       setName(data.name);
       setCity(data.city);
+      setSubdomain(data.subdomain);
     }
     setLoading(false);
   }, [user]);
@@ -34,12 +43,13 @@ const SettingsPage: React.FC = () => {
     fetchRestaurant();
   }, [fetchRestaurant]);
 
-  const createSlug = (text: string) => {
-    return text
-      .toLowerCase()
-      .replace(/ /g, '-')
-      .replace(/[^\w-]+/g, '');
-  };
+  // Effect to auto-generate subdomain for new restaurants
+  useEffect(() => {
+    if (!restaurant) { // only for new restaurants
+      setSubdomain(createSlug(name));
+    }
+  }, [name, restaurant]);
+
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,23 +58,35 @@ const SettingsPage: React.FC = () => {
     setSaving(true);
     setMessage(null);
 
-    const restaurantData = {
-      id: restaurant?.id, // undefined if new
-      owner_id: user.id,
-      name,
-      city,
-      slug: restaurant?.slug || createSlug(name),
-    };
+    let error;
 
-    const { error } = await supabase.from('restaurants').upsert(restaurantData);
+    if (restaurant) {
+      // Update existing restaurant (subdomain is not changed)
+      const { error: updateError } = await supabase
+        .from('restaurants')
+        .update({ name, city })
+        .eq('id', restaurant.id);
+      error = updateError;
+    } else {
+      // Create new restaurant
+      const restaurantData = {
+        name,
+        city,
+        slug: createSlug(name) + '-' + Math.random().toString(36).substring(2, 8), // Add random suffix to slug for uniqueness
+        subdomain,
+      };
+      const { error: insertError } = await supabase
+        .from('restaurants')
+        .insert(restaurantData);
+      error = insertError;
+    }
 
     if (error) {
-        setMessage({ type: 'error', text: error.message });
+      setMessage({ type: 'error', text: error.message });
     } else {
-        setMessage({ type: 'success', text: 'Settings saved successfully!' });
-        if (!restaurant) { // if it was a new creation, refetch
-            fetchRestaurant();
-        }
+      setMessage({ type: 'success', text: 'Settings saved successfully!' });
+      // Always refetch to get the latest data, including new restaurant details
+      fetchRestaurant();
     }
     setSaving(false);
   };
@@ -89,6 +111,26 @@ const SettingsPage: React.FC = () => {
               className="mt-1 block w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             />
           </div>
+           <div>
+            <label htmlFor="subdomain" className="block text-sm font-medium text-slate-300">
+              Subdomain
+            </label>
+            <div className="flex mt-1">
+                 <input
+                    type="text"
+                    id="subdomain"
+                    value={subdomain}
+                    onChange={(e) => setSubdomain(createSlug(e.target.value))}
+                    required
+                    disabled={!!restaurant}
+                    className="block w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-l-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-700 disabled:cursor-not-allowed"
+                />
+                <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-slate-700 bg-slate-700 text-slate-400 text-sm">
+                    .restaurantos.app
+                </span>
+            </div>
+             {!!restaurant && <p className="mt-2 text-xs text-slate-500">Subdomain cannot be changed after creation.</p>}
+          </div>
           <div>
             <label htmlFor="city" className="block text-sm font-medium text-slate-300">
               City
@@ -99,8 +141,7 @@ const SettingsPage: React.FC = () => {
               value={city}
               onChange={(e) => setCity(e.target.value)}
               required
-              disabled
-              className="mt-1 block w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-slate-400 placeholder-slate-500"
+              className="mt-1 block w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             />
           </div>
           <div>

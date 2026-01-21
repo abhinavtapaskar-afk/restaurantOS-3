@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
@@ -6,7 +5,7 @@ import { Restaurant, MenuItem } from '../../types';
 import Modal from '../ui/Modal';
 import { PlusCircle, Image as ImageIcon, ToggleLeft, ToggleRight, Trash2, Edit } from 'lucide-react';
 
-const MenuItemCard: React.FC<{ item: MenuItem, onToggle: (id: string, isAvailable: boolean) => void, onDelete: (id: string, imageUrl?: string) => void }> = ({ item, onToggle, onDelete }) => (
+const MenuItemCard: React.FC<{ item: MenuItem, onToggle: (id: string, isAvailable: boolean) => void, onDelete: (id: string, imageUrl?: string) => void, onEdit: (item: MenuItem) => void }> = ({ item, onToggle, onDelete, onEdit }) => (
     <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden group">
         <div className="relative h-40 bg-slate-800">
             {item.image_url ? (
@@ -27,9 +26,14 @@ const MenuItemCard: React.FC<{ item: MenuItem, onToggle: (id: string, isAvailabl
                     {item.is_available ? <ToggleRight className="text-emerald-500" /> : <ToggleLeft className="text-slate-500" />}
                     <span>{item.is_available ? 'Available' : 'Unavailable'}</span>
                 </button>
-                <button onClick={() => onDelete(item.id, item.image_url)} className="text-red-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Trash2 size={18} />
-                </button>
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => onEdit(item)} className="text-slate-400 hover:text-white">
+                        <Edit size={18} />
+                    </button>
+                    <button onClick={() => onDelete(item.id, item.image_url)} className="text-red-500 hover:text-red-400">
+                        <Trash2 size={18} />
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -42,6 +46,7 @@ const MenuPage: React.FC = () => {
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
     
     // Form state
     const [name, setName] = useState('');
@@ -49,6 +54,7 @@ const MenuPage: React.FC = () => {
     const [category, setCategory] = useState('');
     const [isVeg, setIsVeg] = useState(true);
     const [imageFile, setImageFile] = useState<File | null>(null);
+    const [currentImageUrl, setCurrentImageUrl] = useState<string | undefined>(undefined);
     const [saving, setSaving] = useState(false);
 
     const fetchMenuItems = useCallback(async () => {
@@ -69,7 +75,22 @@ const MenuPage: React.FC = () => {
     }, [fetchMenuItems]);
 
     const resetForm = () => {
-        setName(''); setPrice(''); setCategory(''); setIsVeg(true); setImageFile(null);
+        setName(''); setPrice(''); setCategory(''); setIsVeg(true); setImageFile(null); setEditingItem(null); setCurrentImageUrl(undefined);
+    };
+
+    const handleOpenAddModal = () => {
+        resetForm();
+        setIsModalOpen(true);
+    };
+
+    const handleOpenEditModal = (item: MenuItem) => {
+        setEditingItem(item);
+        setName(item.name);
+        setPrice(item.price.toString());
+        setCategory(item.category || '');
+        setIsVeg(item.is_veg);
+        setCurrentImageUrl(item.image_url);
+        setIsModalOpen(true);
     };
 
     const handleFormSubmit = async (e: React.FormEvent) => {
@@ -77,12 +98,19 @@ const MenuPage: React.FC = () => {
         if (!restaurant) return;
         setSaving(true);
         
-        let imageUrl: string | undefined = undefined;
+        let imageUrl: string | undefined = editingItem ? editingItem.image_url : undefined;
+
         if (imageFile) {
-            const filePath = `public/${restaurant.id}/${Date.now()}-${imageFile.name}`;
+            // If editing and there was an old image, remove it
+            if (editingItem && editingItem.image_url) {
+                const oldPath = editingItem.image_url.split('/menu-images/')[1];
+                await supabase.storage.from('menu-images').remove([oldPath]);
+            }
+            // Upload the new image
+            const filePath = `${restaurant.id}/${Date.now()}-${imageFile.name}`;
             const { error: uploadError } = await supabase.storage.from('menu-images').upload(filePath, imageFile);
             if (uploadError) {
-                console.error("Upload error:", uploadError);
+                console.error("Upload error:", uploadError.message);
                 setSaving(false);
                 return;
             }
@@ -90,21 +118,30 @@ const MenuPage: React.FC = () => {
             imageUrl = publicUrl;
         }
 
-        const { error: insertError } = await supabase.from('menu_items').insert({
+        const itemData = {
             restaurant_id: restaurant.id,
             name,
             price: parseFloat(price),
             category,
             is_veg: isVeg,
             image_url: imageUrl
-        });
+        };
+        
+        let error;
+        if (editingItem) {
+            const { error: updateError } = await supabase.from('menu_items').update(itemData).eq('id', editingItem.id);
+            error = updateError;
+        } else {
+            const { error: insertError } = await supabase.from('menu_items').insert(itemData);
+            error = insertError;
+        }
 
-        if (!insertError) {
+        if (!error) {
             fetchMenuItems();
             setIsModalOpen(false);
             resetForm();
         } else {
-            console.error("Insert error:", insertError);
+            console.error("DB error:", error);
         }
         setSaving(false);
     };
@@ -131,7 +168,7 @@ const MenuPage: React.FC = () => {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-white">Menu</h1>
-                <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-emerald-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-emerald-500 transition-colors">
+                <button onClick={handleOpenAddModal} className="flex items-center gap-2 bg-emerald-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-emerald-500 transition-colors">
                     <PlusCircle size={20} />
                     <span>Add Item</span>
                 </button>
@@ -139,7 +176,7 @@ const MenuPage: React.FC = () => {
 
             {menuItems.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {menuItems.map(item => <MenuItemCard key={item.id} item={item} onToggle={handleAvailabilityToggle} onDelete={handleDeleteItem} />)}
+                    {menuItems.map(item => <MenuItemCard key={item.id} item={item} onToggle={handleAvailabilityToggle} onDelete={handleDeleteItem} onEdit={handleOpenEditModal} />)}
                 </div>
             ) : (
                 <div className="text-center py-16 bg-slate-900/50 border-2 border-dashed border-slate-800 rounded-lg">
@@ -148,7 +185,7 @@ const MenuPage: React.FC = () => {
                 </div>
             )}
 
-            <Modal title="Add New Menu Item" isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+            <Modal title={editingItem ? "Edit Menu Item" : "Add New Menu Item"} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
                 <form onSubmit={handleFormSubmit} className="space-y-4">
                      <div>
                         <label className="block text-sm font-medium text-slate-300">Name</label>
@@ -169,11 +206,16 @@ const MenuPage: React.FC = () => {
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-slate-300">Image</label>
+                        {currentImageUrl && !imageFile && (
+                            <div className="mt-2">
+                                <img src={currentImageUrl} alt="Current" className="w-24 h-24 rounded-md object-cover"/>
+                            </div>
+                        )}
                         <input type="file" onChange={e => e.target.files && setImageFile(e.target.files[0])} accept="image/*" className="mt-1 block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-500/10 file:text-emerald-500 hover:file:bg-emerald-500/20"/>
                     </div>
                     <div className="pt-4 flex justify-end">
                         <button type="submit" disabled={saving} className="bg-emerald-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-emerald-500 disabled:opacity-50">
-                            {saving ? 'Saving...' : 'Save Item'}
+                            {saving ? 'Saving...' : (editingItem ? 'Update Item' : 'Save Item')}
                         </button>
                     </div>
                 </form>

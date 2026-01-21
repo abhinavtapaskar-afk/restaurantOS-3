@@ -1,4 +1,4 @@
-import { createBrowserClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 
 // =================================================================================
 // =================================================================================
@@ -24,4 +24,4 @@ if (supabaseUrl.includes('your-project-id') || supabaseAnonKey.includes('your-pu
   console.error(errorMessage);
 }
 
-export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

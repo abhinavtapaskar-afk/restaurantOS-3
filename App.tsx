@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
@@ -10,6 +9,7 @@ import SettingsPage from './components/dashboard/SettingsPage';
 import MenuPage from './components/dashboard/MenuPage';
 import OrdersPage from './components/dashboard/OrdersPage';
 import AuthWrapper from './components/ui/AuthWrapper';
+import PublicMenuPage from './components/pages/PublicMenuPage';
 
 function App() {
   return (
@@ -18,6 +18,7 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/menu/:slug" element={<PublicMenuPage />} />
           <Route 
             path="/dashboard"
             element={
