@@ -2,6 +2,41 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { Restaurant } from '../../types';
+import { cn } from '../../lib/utils';
+
+const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+  ({ className, ...props }, ref) => {
+    return (
+      <input
+        className={cn(
+          "block w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-800 disabled:cursor-not-allowed",
+          className
+        )}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+Input.displayName = "Input";
+
+const TextArea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
+    ({ className, ...props }, ref) => {
+      return (
+        <textarea
+          className={cn(
+            "block w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500",
+            className
+          )}
+          ref={ref}
+          rows={4}
+          {...props}
+        />
+      );
+    }
+  );
+TextArea.displayName = "TextArea";
+
 
 const SettingsPage: React.FC = () => {
   const { user } = useAuth();
@@ -75,7 +110,7 @@ const SettingsPage: React.FC = () => {
       error = updateError;
     } else {
       const slug = createSlug(name) + '-' + Math.random().toString(36).substring(2, 8);
-      const { error: insertError } = await supabase.from('restaurants').insert({ ...restaurantData, subdomain, slug });
+      const { error: insertError } = await supabase.from('restaurants').insert({ ...restaurantData, subdomain, slug, owner_id: user.id });
       error = insertError;
     }
 
@@ -88,13 +123,6 @@ const SettingsPage: React.FC = () => {
     setSaving(false);
   };
   
-  const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
-     <input {...props} className="block w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-800 disabled:cursor-not-allowed" />
-  );
-  const TextArea = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
-    <textarea {...props} rows={4} className="block w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500" />
- );
-
   if (loading) return <div>Loading settings...</div>
 
   return (
