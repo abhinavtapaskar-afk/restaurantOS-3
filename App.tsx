@@ -10,6 +10,7 @@ import MenuPage from './components/dashboard/MenuPage';
 import OrdersPage from './components/dashboard/OrdersPage';
 import AuthWrapper from './components/ui/AuthWrapper';
 import PublicMenuPage from './components/pages/PublicMenuPage';
+import ReviewsPage from './components/dashboard/ReviewsPage';
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
             <Route path="settings" element={<SettingsPage />} />
             <Route path="menu" element={<MenuPage />} />
             <Route path="orders" element={<OrdersPage />} />
+            <Route path="reviews" element={<ReviewsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

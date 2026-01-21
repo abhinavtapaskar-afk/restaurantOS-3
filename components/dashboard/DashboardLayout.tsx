@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Utensils, ShoppingCart, Settings, Heart, LogOut, User as UserIcon, ExternalLink } from 'lucide-react';
+import { LayoutDashboard, Utensils, ShoppingCart, Settings, Heart, LogOut, User as UserIcon, ExternalLink, Star } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../services/supabase';
 
@@ -8,6 +8,7 @@ const navLinks = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Menu', href: '/dashboard/menu', icon: Utensils },
   { name: 'Orders', href: '/dashboard/orders', icon: ShoppingCart },
+  { name: 'Reviews', href: '/dashboard/reviews', icon: Star },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 

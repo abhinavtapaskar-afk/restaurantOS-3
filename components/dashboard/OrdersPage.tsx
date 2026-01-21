@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
-import { Order, OrderStatus, Restaurant } from '../../types';
+import { Order, OrderStatus, Restaurant, CartItem } from '../../types';
 import { cn } from '../../lib/utils';
+import Modal from '../ui/Modal';
+import { Eye } from 'lucide-react';
 
 const getStatusClass = (status: OrderStatus) => {
     switch (status) {
@@ -14,11 +16,40 @@ const getStatusClass = (status: OrderStatus) => {
     }
 }
 
+const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void }> = ({ order, onClose }) => (
+    <Modal isOpen={!!order} onClose={onClose} title={`Order Details: ${order.id.substring(0, 8)}`}>
+        <div className="space-y-4">
+            <div>
+                <h4 className="font-semibold text-slate-300">Customer Info</h4>
+                <p><strong>Name:</strong> {order.customer_name}</p>
+                <p><strong>Phone:</strong> {order.customer_phone}</p>
+                <p><strong>Address:</strong> {order.customer_address}</p>
+            </div>
+            <div>
+                <h4 className="font-semibold text-slate-300">Order Items</h4>
+                <ul className="divide-y divide-slate-800 mt-2">
+                {(order.order_details || []).map((item, index) => (
+                    <li key={index} className="py-2 flex justify-between">
+                        <span>{item.quantity} x {item.name}</span>
+                        <span>₹{(item.price * item.quantity).toFixed(2)}</span>
+                    </li>
+                ))}
+                </ul>
+                <div className="flex justify-between font-bold text-lg mt-2 pt-2 border-t border-slate-800 text-emerald-400">
+                    <span>Total</span>
+                    <span>₹{order.total_amount}</span>
+                </div>
+            </div>
+        </div>
+    </Modal>
+);
+
 const OrdersPage: React.FC = () => {
     const { user } = useAuth();
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
     const fetchOrders = useCallback(async (restaurantId: string) => {
         const { data, error } = await supabase
@@ -61,8 +92,7 @@ const OrdersPage: React.FC = () => {
                 table: 'orders',
                 filter: `restaurant_id=eq.${restaurant.id}`
             },
-            (payload) => {
-                console.log('Change received!', payload);
+            () => {
                 fetchOrders(restaurant.id);
             })
             .subscribe();
@@ -108,6 +138,9 @@ const OrdersPage: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                        <div className="flex gap-2">
+                                            <button onClick={() => setSelectedOrder(order)} className="text-slate-400 hover:text-white p-1.5 rounded-md hover:bg-slate-700 transition-colors" title="View Details">
+                                                <Eye size={16} />
+                                            </button>
                                             {order.status === 'pending' && (
                                                 <button onClick={() => updateStatus(order.id, 'preparing')} className="text-blue-400 hover:text-blue-300 bg-blue-500/10 px-3 py-1 rounded-md transition-colors hover:bg-blue-500/20">Prepare</button>
                                             )}
@@ -125,6 +158,7 @@ const OrdersPage: React.FC = () => {
                     )}
                 </div>
             </div>
+            {selectedOrder && <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />}
         </div>
     );
 };
