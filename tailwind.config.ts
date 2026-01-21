@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+// FIX: Use `export default` instead of `module.exports` for ES module compatibility.
+export default {
   content: [
     './index.html',
     './**/*.{js,ts,jsx,tsx}',
