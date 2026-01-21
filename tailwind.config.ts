@@ -13,13 +13,16 @@ export default {
           900: '#0f172a',
           950: '#020617',
         },
-        emerald: {
-          500: '#10b981',
-          600: '#059669',
-        },
+        // Theme Colors
+        emerald: { 500: '#10b981', 600: '#059669', 400: '#34d399' },
+        sky: { 500: '#0ea5e9', 600: '#0284c7', 400: '#38bdf8' },
+        rose: { 500: '#f43f5e', 600: '#e11d48', 400: '#fb7185' },
+        amber: { 500: '#f59e0b', 600: '#d97706', 400: '#fbbf24' },
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
+        'roboto-slab': ['"Roboto Slab"', 'serif'],
+        'lato': ['Lato', 'sans-serif'],
       },
       boxShadow: {
         'glow-emerald': '0 0 15px 0 rgba(16, 185, 129, 0.3)',

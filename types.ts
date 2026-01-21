@@ -7,10 +7,15 @@ export interface Restaurant {
   subdomain: string;
   created_at: string;
   theme_color?: string;
+  font?: string;
   hero_image_url?: string;
+  hero_title?: string;
+  hero_subtitle?: string;
   about_us?: string;
   address?: string;
   phone_number?: string;
+  opening_hours?: string;
+  google_maps_url?: string;
 }
 
 export interface MenuItem {
@@ -48,5 +53,6 @@ export interface Review {
     customer_name: string;
     rating: number;
     comment?: string;
+    is_visible: boolean;
     created_at: string;
 }

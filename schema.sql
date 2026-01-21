@@ -7,10 +7,15 @@ CREATE TABLE IF NOT EXISTS restaurants (
   slug TEXT UNIQUE NOT NULL,
   subdomain TEXT UNIQUE NOT NULL,
   theme_color TEXT DEFAULT 'emerald',
+  font TEXT DEFAULT 'Inter',
   hero_image_url TEXT,
+  hero_title TEXT,
+  hero_subtitle TEXT,
   about_us TEXT,
   address TEXT,
   phone_number TEXT,
+  opening_hours TEXT,
+  google_maps_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -55,6 +60,7 @@ CREATE TABLE IF NOT EXISTS reviews (
     customer_name TEXT NOT NULL,
     rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
     comment TEXT,
+    is_visible BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -146,7 +152,7 @@ WITH CHECK (true);
 -- Policy for reviews
 DROP POLICY IF EXISTS "Reviews are publicly viewable." ON reviews;
 DROP POLICY IF EXISTS "Anyone can submit a review." ON reviews;
-DROP POLICY IF EXISTS "Owners can see their reviews." ON reviews;
+DROP POLICY IF EXISTS "Owners can manage their reviews." ON reviews;
 
 CREATE POLICY "Reviews are publicly viewable."
 ON reviews
@@ -158,10 +164,15 @@ ON reviews
 FOR INSERT
 WITH CHECK (true);
 
-CREATE POLICY "Owners can see their reviews."
+CREATE POLICY "Owners can manage their reviews."
 ON reviews
-FOR SELECT
+FOR ALL
 USING (EXISTS (
+  SELECT 1 FROM restaurants
+  WHERE restaurants.id = reviews.restaurant_id
+  AND restaurants.owner_id = auth.uid()
+))
+WITH CHECK (EXISTS (
   SELECT 1 FROM restaurants
   WHERE restaurants.id = reviews.restaurant_id
   AND restaurants.owner_id = auth.uid()
