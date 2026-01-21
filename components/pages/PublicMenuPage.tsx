@@ -95,34 +95,36 @@ const PublicMenuPage: React.FC = () => {
     }, {} as Record<string, MenuItem[]>);
 
     return (
-        <div className="min-h-screen bg-slate-950 p-4 sm:p-6 md:p-8">
+        <div className="min-h-screen bg-slate-900 text-slate-300 p-4 sm:p-6 md:p-8">
             <div className="max-w-4xl mx-auto">
-                <header className="text-center mb-8">
-                    <UtensilsCrossed className="text-emerald-500 mx-auto" size={48} />
-                    <h1 className="text-4xl font-bold text-white mt-4">{restaurant?.name}</h1>
+                <header className="text-center mb-10 border-b-2 border-slate-800 pb-8">
+                    <div className="inline-block bg-slate-800 p-4 rounded-full border-2 border-slate-700 mb-4">
+                        <UtensilsCrossed className="text-emerald-500" size={40} />
+                    </div>
+                    <h1 className="text-4xl font-bold text-white mt-2">{restaurant?.name}</h1>
                     <p className="text-slate-400">{restaurant?.city}</p>
                 </header>
                 
                 <main>
                     {Object.entries(groupedMenu).map(([category, items]) => (
-                        <div key={category} className="mb-8">
-                            <h2 className="text-2xl font-semibold text-emerald-500 border-b-2 border-slate-800 pb-2 mb-4">{category}</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div key={category} className="mb-10">
+                            <h2 className="text-2xl font-semibold text-emerald-400 mb-6">{category}</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {items.map(item => (
-                                    <div key={item.id} className="bg-slate-900 p-4 rounded-lg border border-slate-800 flex gap-4">
+                                    <div key={item.id} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 flex gap-4 transition-colors hover:border-slate-600">
                                         {item.image_url ? (
-                                             <img src={item.image_url} alt={item.name} className="w-24 h-24 rounded-md object-cover flex-shrink-0" />
+                                             <img src={item.image_url} alt={item.name} className="w-28 h-28 rounded-md object-cover flex-shrink-0" />
                                         ) : (
-                                            <div className="w-24 h-24 rounded-md bg-slate-800 flex items-center justify-center text-slate-500 flex-shrink-0"><ImageIcon size={32} /></div>
+                                            <div className="w-28 h-28 rounded-md bg-slate-800 flex items-center justify-center text-slate-500 flex-shrink-0"><ImageIcon size={32} /></div>
                                         )}
-                                        <div className="flex flex-col">
-                                            <div className="flex items-center gap-2">
-                                                 <div className={`w-3 h-3 border-2 ${item.is_veg ? 'border-green-500' : 'border-red-500'} flex items-center justify-center`}>
+                                        <div className="flex flex-col flex-grow">
+                                            <div className="flex items-start gap-2">
+                                                 <div className={`mt-1.5 w-3 h-3 border-2 ${item.is_veg ? 'border-green-500' : 'border-red-500'} flex items-center justify-center flex-shrink-0`}>
                                                     <div className={`w-1.5 h-1.5 rounded-full ${item.is_veg ? 'bg-green-500' : 'bg-red-500'}`}></div>
                                                  </div>
                                                 <h3 className="font-bold text-lg text-white">{item.name}</h3>
                                             </div>
-                                            <p className="text-emerald-500 font-semibold mt-auto">₹{item.price}</p>
+                                            <p className="text-emerald-400 font-semibold mt-auto text-lg">₹{item.price}</p>
                                         </div>
                                     </div>
                                 ))}
@@ -135,7 +137,7 @@ const PublicMenuPage: React.FC = () => {
                     <button 
                         onClick={handlePlaceOrder}
                         disabled={placingOrder || menuItems.length === 0}
-                        className="bg-emerald-600 text-white font-bold py-3 px-10 rounded-lg hover:bg-emerald-500 transition-colors disabled:bg-slate-700 disabled:cursor-not-allowed"
+                        className="bg-emerald-600 text-white font-bold py-3 px-10 rounded-lg hover:bg-emerald-500 transition-colors disabled:bg-slate-700 disabled:cursor-not-allowed shadow-lg hover:shadow-glow-emerald"
                     >
                         {placingOrder ? 'Placing Order...' : 'Simulate Placing an Order'}
                     </button>

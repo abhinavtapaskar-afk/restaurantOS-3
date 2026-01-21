@@ -26,7 +26,8 @@
     "./types.ts",
     "./components",
     "./hooks",
-    "./services"
+    "./services",
+    "lib"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

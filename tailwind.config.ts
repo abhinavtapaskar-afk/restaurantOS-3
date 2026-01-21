@@ -1,5 +1,4 @@
 /** @type {import('tailwindcss').Config} */
-// FIX: Use `export default` instead of `module.exports` for ES module compatibility.
 export default {
   content: [
     './index.html',
@@ -9,6 +8,7 @@ export default {
     extend: {
       colors: {
         slate: {
+          700: '#334155',
           800: '#1e293b',
           900: '#0f172a',
           950: '#020617',
@@ -21,6 +21,9 @@ export default {
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
       },
+      boxShadow: {
+        'glow-emerald': '0 0 15px 0 rgba(16, 185, 129, 0.3)',
+      }
     },
   },
   plugins: [],

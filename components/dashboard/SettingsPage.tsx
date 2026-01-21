@@ -91,28 +91,31 @@ const SettingsPage: React.FC = () => {
     setSaving(false);
   };
   
+  const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
+     <input {...props} className="block w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-800 disabled:cursor-not-allowed" />
+  );
+
   if (loading) return <div>Loading settings...</div>
 
   return (
     <div>
       <h1 className="text-3xl font-bold mb-6 text-white">Restaurant Settings</h1>
-      <div className="max-w-2xl bg-slate-900 p-8 rounded-lg border border-slate-800">
+      <div className="max-w-2xl bg-slate-800/50 p-8 rounded-lg border border-slate-700">
         <form onSubmit={handleSave} className="space-y-6">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-slate-300">
+            <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-1">
               Restaurant Name
             </label>
-            <input
+            <Input
               type="text"
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="mt-1 block w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             />
           </div>
            <div>
-            <label htmlFor="subdomain" className="block text-sm font-medium text-slate-300">
+            <label htmlFor="subdomain" className="block text-sm font-medium text-slate-300 mb-1">
               Subdomain
             </label>
             <div className="flex mt-1">
@@ -123,7 +126,7 @@ const SettingsPage: React.FC = () => {
                     onChange={(e) => setSubdomain(createSlug(e.target.value))}
                     required
                     disabled={!!restaurant}
-                    className="block w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-l-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-700 disabled:cursor-not-allowed"
+                    className="block w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-l-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-800 disabled:cursor-not-allowed"
                 />
                 <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-slate-700 bg-slate-700 text-slate-400 text-sm">
                     .restaurantos.app
@@ -132,16 +135,15 @@ const SettingsPage: React.FC = () => {
              {!!restaurant && <p className="mt-2 text-xs text-slate-500">Subdomain cannot be changed after creation.</p>}
           </div>
           <div>
-            <label htmlFor="city" className="block text-sm font-medium text-slate-300">
+            <label htmlFor="city" className="block text-sm font-medium text-slate-300 mb-1">
               City
             </label>
-            <input
+            <Input
               type="text"
               id="city"
               value={city}
               onChange={(e) => setCity(e.target.value)}
               required
-              className="mt-1 block w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             />
           </div>
           <div>

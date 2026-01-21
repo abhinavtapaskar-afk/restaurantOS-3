@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
@@ -7,8 +6,8 @@ import { Restaurant, Order } from '../../types';
 import { DollarSign, ShoppingBag, PawPrint, AlertTriangle } from 'lucide-react';
 
 const StatCard: React.FC<{ title: string; value: string; icon: React.ElementType }> = ({ title, value, icon: Icon }) => (
-    <div className="bg-slate-900 p-6 rounded-lg border border-slate-800 flex items-center gap-4">
-        <div className="bg-emerald-500/10 p-3 rounded-full">
+    <div className="bg-slate-800/50 p-6 rounded-lg border border-slate-700 flex items-center gap-4 transition-all duration-300 hover:border-emerald-500/50 hover:shadow-glow-emerald">
+        <div className="bg-emerald-500/10 p-3 rounded-full border border-emerald-500/20">
             <Icon className="text-emerald-500" size={24} />
         </div>
         <div>

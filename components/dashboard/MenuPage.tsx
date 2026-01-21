@@ -4,34 +4,35 @@ import { useAuth } from '../../hooks/useAuth';
 import { Restaurant, MenuItem } from '../../types';
 import Modal from '../ui/Modal';
 import { PlusCircle, Image as ImageIcon, ToggleLeft, ToggleRight, Trash2, Edit } from 'lucide-react';
+import { cn } from '../../lib/utils';
 
 const MenuItemCard: React.FC<{ item: MenuItem, onToggle: (id: string, isAvailable: boolean) => void, onDelete: (id: string, imageUrl?: string) => void, onEdit: (item: MenuItem) => void }> = ({ item, onToggle, onDelete, onEdit }) => (
-    <div className="bg-slate-900 rounded-lg border border-slate-800 overflow-hidden group">
-        <div className="relative h-40 bg-slate-800">
+    <div className="bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden group transition-all duration-300 hover:border-emerald-500/30 hover:shadow-glow-emerald">
+        <div className="relative aspect-video bg-slate-800">
             {item.image_url ? (
                 <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
             ) : (
                 <div className="w-full h-full flex items-center justify-center text-slate-500"><ImageIcon size={40} /></div>
             )}
-            <div className={`absolute top-2 left-2 px-2 py-1 text-xs font-bold rounded-full ${item.is_veg ? 'bg-green-500 text-white' : 'bg-red-500 text-white'}`}>
+            <div className={cn('absolute top-2 left-2 px-2 py-0.5 text-xs font-bold rounded-full text-white', item.is_veg ? 'bg-green-600/80' : 'bg-red-600/80')}>
                 {item.is_veg ? 'VEG' : 'NON-VEG'}
             </div>
         </div>
         <div className="p-4">
-            <h3 className="font-bold text-lg text-white">{item.name}</h3>
-            <p className="text-emerald-500 font-semibold">₹{item.price}</p>
-            <p className="text-sm text-slate-400 capitalize">{item.category}</p>
+            <h3 className="font-bold text-lg text-white truncate">{item.name}</h3>
+            <p className="text-emerald-400 font-semibold">₹{item.price}</p>
+            <p className="text-sm text-slate-400 capitalize">{item.category || 'Uncategorized'}</p>
             <div className="flex items-center justify-between mt-4">
-                 <button onClick={() => onToggle(item.id, !item.is_available)} className="flex items-center gap-2 text-sm">
-                    {item.is_available ? <ToggleRight className="text-emerald-500" /> : <ToggleLeft className="text-slate-500" />}
-                    <span>{item.is_available ? 'Available' : 'Unavailable'}</span>
+                 <button onClick={() => onToggle(item.id, !item.is_available)} className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors">
+                    {item.is_available ? <ToggleRight size={22} className="text-emerald-500" /> : <ToggleLeft size={22} className="text-slate-500" />}
+                    <span className={item.is_available ? 'text-slate-300' : 'text-slate-500'}>{item.is_available ? 'Available' : 'Unavailable'}</span>
                 </button>
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => onEdit(item)} className="text-slate-400 hover:text-white">
-                        <Edit size={18} />
+                    <button onClick={() => onEdit(item)} className="text-slate-400 hover:text-white p-1.5 rounded-md hover:bg-slate-700">
+                        <Edit size={16} />
                     </button>
-                    <button onClick={() => onDelete(item.id, item.image_url)} className="text-red-500 hover:text-red-400">
-                        <Trash2 size={18} />
+                    <button onClick={() => onDelete(item.id, item.image_url)} className="text-red-500 hover:text-red-400 p-1.5 rounded-md hover:bg-slate-700">
+                        <Trash2 size={16} />
                     </button>
                 </div>
             </div>
@@ -56,6 +57,8 @@ const MenuPage: React.FC = () => {
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [currentImageUrl, setCurrentImageUrl] = useState<string | undefined>(undefined);
     const [saving, setSaving] = useState(false);
+
+    const inputStyle = "block w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500";
 
     const fetchMenuItems = useCallback(async () => {
         if (!user) return;
@@ -101,12 +104,10 @@ const MenuPage: React.FC = () => {
         let imageUrl: string | undefined = editingItem ? editingItem.image_url : undefined;
 
         if (imageFile) {
-            // If editing and there was an old image, remove it
             if (editingItem && editingItem.image_url) {
                 const oldPath = editingItem.image_url.split('/menu-images/')[1];
                 await supabase.storage.from('menu-images').remove([oldPath]);
             }
-            // Upload the new image
             const filePath = `${restaurant.id}/${Date.now()}-${imageFile.name}`;
             const { error: uploadError } = await supabase.storage.from('menu-images').upload(filePath, imageFile);
             if (uploadError) {
@@ -188,30 +189,30 @@ const MenuPage: React.FC = () => {
             <Modal title={editingItem ? "Edit Menu Item" : "Add New Menu Item"} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
                 <form onSubmit={handleFormSubmit} className="space-y-4">
                      <div>
-                        <label className="block text-sm font-medium text-slate-300">Name</label>
-                        <input type="text" value={name} onChange={e => setName(e.target.value)} required className="mt-1 block w-full input-style" />
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Name</label>
+                        <input type="text" value={name} onChange={e => setName(e.target.value)} required className={inputStyle} />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-300">Price (₹)</label>
-                        <input type="number" step="0.01" value={price} onChange={e => setPrice(e.target.value)} required className="mt-1 block w-full input-style" />
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Price (₹)</label>
+                        <input type="number" step="0.01" value={price} onChange={e => setPrice(e.target.value)} required className={inputStyle} />
                     </div>
                      <div>
-                        <label className="block text-sm font-medium text-slate-300">Category</label>
-                        <input type="text" value={category} onChange={e => setCategory(e.target.value)} placeholder="e.g., Appetizer, Main Course" className="mt-1 block w-full input-style" />
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Category</label>
+                        <input type="text" value={category} onChange={e => setCategory(e.target.value)} placeholder="e.g., Appetizer, Main Course" className={inputStyle} />
                     </div>
                     <div className="flex items-center gap-4">
                         <label className="text-sm font-medium text-slate-300">Type:</label>
-                        <button type="button" onClick={() => setIsVeg(true)} className={`px-3 py-1 text-sm rounded-full ${isVeg ? 'bg-green-500 text-white' : 'bg-slate-700'}`}>Veg</button>
-                        <button type="button" onClick={() => setIsVeg(false)} className={`px-3 py-1 text-sm rounded-full ${!isVeg ? 'bg-red-500 text-white' : 'bg-slate-700'}`}>Non-Veg</button>
+                        <button type="button" onClick={() => setIsVeg(true)} className={`px-3 py-1 text-sm rounded-full transition-colors ${isVeg ? 'bg-green-500 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>Veg</button>
+                        <button type="button" onClick={() => setIsVeg(false)} className={`px-3 py-1 text-sm rounded-full transition-colors ${!isVeg ? 'bg-red-500 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>Non-Veg</button>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-300">Image</label>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Image</label>
                         {currentImageUrl && !imageFile && (
                             <div className="mt-2">
                                 <img src={currentImageUrl} alt="Current" className="w-24 h-24 rounded-md object-cover"/>
                             </div>
                         )}
-                        <input type="file" onChange={e => e.target.files && setImageFile(e.target.files[0])} accept="image/*" className="mt-1 block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-500/10 file:text-emerald-500 hover:file:bg-emerald-500/20"/>
+                        <input type="file" onChange={e => e.target.files && setImageFile(e.target.files[0])} accept="image/*" className="mt-1 block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-500/10 file:text-emerald-500 hover:file:bg-emerald-500/20 transition-colors"/>
                     </div>
                     <div className="pt-4 flex justify-end">
                         <button type="submit" disabled={saving} className="bg-emerald-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-emerald-500 disabled:opacity-50">
@@ -219,7 +220,6 @@ const MenuPage: React.FC = () => {
                         </button>
                     </div>
                 </form>
-                 <style>{`.input-style { background-color: #1e293b; border: 1px solid #334155; border-radius: 0.375rem; color: white; padding: 0.5rem 0.75rem; } .input-style:focus { outline: none; box-shadow: 0 0 0 2px #10b981; border-color: #10b981;}`}</style>
             </Modal>
         </div>
     );

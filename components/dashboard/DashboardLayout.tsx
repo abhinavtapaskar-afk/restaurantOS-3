@@ -38,12 +38,12 @@ const DashboardLayout: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-200">
+    <div className="flex h-screen bg-slate-950 text-slate-300">
       {/* Sidebar */}
       <aside className="w-64 bg-slate-900 p-4 flex flex-col border-r border-slate-800">
-        <div className="flex items-center gap-2 mb-10">
+        <div className="flex items-center gap-3 mb-10 px-2">
           <Utensils className="text-emerald-500" size={28} />
-          <h1 className="text-xl font-bold">RestaurantOS</h1>
+          <h1 className="text-xl font-bold text-white">RestaurantOS</h1>
         </div>
         <nav className="flex-1">
           <ul className="space-y-2">
@@ -53,10 +53,10 @@ const DashboardLayout: React.FC = () => {
                   to={item.href}
                   end={item.href === '/dashboard'}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                    `flex items-center gap-3 p-3 rounded-lg transition-colors font-medium ${
                       isActive
-                        ? 'bg-emerald-500/10 text-emerald-500'
-                        : 'hover:bg-slate-800'
+                        ? 'bg-emerald-500/10 text-emerald-400'
+                        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                     }`
                   }
                 >
@@ -68,7 +68,7 @@ const DashboardLayout: React.FC = () => {
           </ul>
         </nav>
         <div className="mt-auto">
-          <div className="flex items-center justify-center gap-2 bg-slate-800 p-3 rounded-lg text-emerald-500">
+          <div className="flex items-center justify-center gap-2 bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-lg text-emerald-400">
             <Heart size={18} />
             <span className="font-semibold text-sm">Mission: Feed Strays</span>
           </div>
@@ -77,30 +77,30 @@ const DashboardLayout: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
-        <header className="flex items-center justify-between h-16 px-6 bg-slate-900 border-b border-slate-800">
+        <header className="flex items-center justify-between h-16 px-6 bg-slate-900/80 backdrop-blur-sm border-b border-slate-800">
            <div>
             {restaurantSlug && (
-              <Link to={`/menu/${restaurantSlug}`} target="_blank" className="flex items-center gap-2 text-sm text-emerald-500 hover:underline">
+              <a href={`#/menu/${restaurantSlug}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-emerald-500 hover:underline">
                 View Public Menu
                 <ExternalLink size={16} />
-              </Link>
+              </a>
             )}
            </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm">{user?.email}</span>
+            <span className="text-sm text-slate-400">{user?.email}</span>
             <div className="p-2 bg-slate-800 rounded-full">
-              <UserIcon size={20} />
+              <UserIcon size={20} className="text-slate-400"/>
             </div>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-800 transition-colors"
+              className="flex items-center gap-2 p-2 rounded-md text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
               title="Logout"
             >
               <LogOut size={20} />
             </button>
           </div>
         </header>
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-6 lg:p-8 overflow-y-auto bg-slate-950">
           <Outlet />
         </main>
       </div>

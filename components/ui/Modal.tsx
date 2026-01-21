@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { X } from 'lucide-react';
 
@@ -13,18 +12,19 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center">
-      <div className="bg-slate-900 rounded-lg shadow-xl p-6 w-full max-w-md m-4 border border-slate-800 relative">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-semibold text-emerald-500">{title}</h3>
+    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex justify-center items-center p-4">
+      <div className="bg-slate-900 rounded-lg shadow-xl w-full max-w-md border border-slate-700 relative">
+        <div className="flex justify-between items-center p-4 border-b border-slate-800">
+          <h3 className="text-lg font-semibold text-emerald-400">{title}</h3>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white transition-colors"
+            className="text-slate-400 hover:text-white transition-colors p-1 rounded-full hover:bg-slate-800"
+            aria-label="Close modal"
           >
-            <X size={24} />
+            <X size={20} />
           </button>
         </div>
-        <div>{children}</div>
+        <div className="p-6">{children}</div>
       </div>
     </div>
   );
