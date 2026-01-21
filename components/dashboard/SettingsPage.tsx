@@ -57,12 +57,17 @@ const SettingsPage: React.FC = () => {
     });
     const [heroImageFile, setHeroImageFile] = useState<File | null>(null);
     
+    const createSlug = (text: string) => text.toLowerCase().replace(/&/g, 'and').replace(/ /g, '-').replace(/[^\w-]+/g, '');
+    
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { id, value } = e.target;
-        setFormState(prev => ({ ...prev, [id]: value }));
+        if (id === 'name') {
+            // When name changes, automatically update subdomain as well
+            setFormState(prev => ({ ...prev, name: value, subdomain: createSlug(value) }));
+        } else {
+            setFormState(prev => ({ ...prev, [id]: value }));
+        }
     };
-
-    const createSlug = (text: string) => text.toLowerCase().replace(/&/g, 'and').replace(/ /g, '-').replace(/[^\w-]+/g, '');
 
     const fetchRestaurant = useCallback(async () => {
         if (!user) return;
@@ -77,17 +82,14 @@ const SettingsPage: React.FC = () => {
                 hero_title: data.hero_title || '', hero_subtitle: data.hero_subtitle || '',
                 opening_hours: data.opening_hours || '', google_maps_url: data.google_maps_url || '',
             });
+        } else {
+            // For new restaurants, initialize subdomain from name
+            setFormState(prev => ({...prev, subdomain: createSlug(prev.name)}));
         }
         setLoading(false);
     }, [user]);
 
     useEffect(() => { fetchRestaurant() }, [fetchRestaurant]);
-
-    useEffect(() => {
-        if (!restaurant) {
-            setFormState(prev => ({ ...prev, subdomain: createSlug(prev.name) }));
-        }
-    }, [formState.name, restaurant]);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -111,7 +113,8 @@ const SettingsPage: React.FC = () => {
             name: formState.name, city: formState.city, address: formState.address, phone_number: formState.phone,
             about_us: formState.about, theme_color: formState.theme_color, font: formState.font,
             hero_title: formState.hero_title, hero_subtitle: formState.hero_subtitle, hero_image_url,
-            opening_hours: formState.opening_hours, google_maps_url: formState.google_maps_url
+            opening_hours: formState.opening_hours, google_maps_url: formState.google_maps_url,
+            subdomain: formState.subdomain
         };
 
         let error;
@@ -120,12 +123,12 @@ const SettingsPage: React.FC = () => {
             error = updateError;
         } else {
             const slug = createSlug(formState.name) + '-' + Math.random().toString(36).substring(2, 8);
-            const { error: insertError } = await supabase.from('restaurants').insert({ ...restaurantData, subdomain: formState.subdomain, slug, owner_id: user.id });
+            const { error: insertError } = await supabase.from('restaurants').insert({ ...restaurantData, slug, owner_id: user.id });
             error = insertError;
         }
 
         if (error) {
-            setMessage({ type: 'error', text: error.message });
+            setMessage({ type: 'error', text: `Save failed: ${error.message}` });
         } else {
             setMessage({ type: 'success', text: 'Settings saved successfully!' });
             fetchRestaurant();
@@ -144,7 +147,6 @@ const SettingsPage: React.FC = () => {
                 <section>
                     <SectionHeader title="Basic Information" subtitle="Core details for your restaurant." />
                     <div className="space-y-6">
-                        {/* ... existing name, city, subdomain fields ... */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-1">Restaurant Name</label>
@@ -158,10 +160,10 @@ const SettingsPage: React.FC = () => {
                         <div>
                             <label htmlFor="subdomain" className="block text-sm font-medium text-slate-300 mb-1">Subdomain</label>
                             <div className="flex mt-1">
-                                <Input type="text" id="subdomain" value={formState.subdomain} onChange={handleInputChange} required disabled={!!restaurant} />
+                                <Input type="text" id="subdomain" value={formState.subdomain} onChange={handleInputChange} required />
                                 <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-slate-700 bg-slate-700 text-slate-400 text-sm">.restaurantos.app</span>
                             </div>
-                            {!!restaurant && <p className="mt-2 text-xs text-slate-500">Subdomain cannot be changed after creation.</p>}
+                            {!!restaurant && <p className="mt-2 text-xs text-yellow-400">Warning: Changing your subdomain will change your public website URL.</p>}
                         </div>
                     </div>
                 </section>
@@ -169,7 +171,6 @@ const SettingsPage: React.FC = () => {
                 <section>
                     <SectionHeader title="Branding & Website" subtitle="Customize the look and feel of your public page." />
                     <div className="space-y-6">
-                        {/* ... existing theme, font, hero fields ... */}
                         <div>
                             <label className="block text-sm font-medium text-slate-300 mb-2">Theme Color</label>
                             <div className="flex gap-4">
