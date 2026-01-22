@@ -132,8 +132,9 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ 
                 customer_lng: location?.lng,
                 total_amount: total,
                 order_details: cart,
+                items: cart, // Duplicate cart data for legacy `items` column
                 status: 'pending' as const,
-                order_type: 'Delivery' // Add default order_type
+                order_type: 'Delivery'
             };
 
             const { error } = await supabase.from('orders').insert(newOrder);

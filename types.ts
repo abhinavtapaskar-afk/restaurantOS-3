@@ -45,6 +45,7 @@ export interface Order {
   customer_lat?: number;
   customer_lng?: number;
   order_details?: CartItem[];
+  items: CartItem[]; // Added for legacy compatibility
   total_amount: number;
   status: OrderStatus;
   created_at: string;
