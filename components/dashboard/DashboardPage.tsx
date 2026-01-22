@@ -34,46 +34,65 @@ const DashboardPage: React.FC = () => {
   const fetchDashboardData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
+    try {
+        const { data: restaurantData, error: restaurantError } = await supabase
+          .from('restaurants')
+          .select('*')
+          .eq('owner_id', user.id)
+          .single();
 
-    const { data: restaurantData, error: restaurantError } = await supabase
-      .from('restaurants')
-      .select('*')
-      .eq('owner_id', user.id)
-      .single();
+        if (restaurantData) {
+          setRestaurant(restaurantData);
+          const { data: ordersData, error: ordersError } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('restaurant_id', restaurantData.id);
+          
+          if (ordersData) {
+            setOrders(ordersData);
+            
+            // Calculate top items safely
+            const itemCounts = new Map<string, number>();
+            const getParsedItems = (order: Order) => {
+                const itemsSource = order.order_details || order.items;
+                if (Array.isArray(itemsSource)) return itemsSource;
+                if (typeof itemsSource === 'string') {
+                    try {
+                        const parsed = JSON.parse(itemsSource);
+                        return Array.isArray(parsed) ? parsed : [];
+                    } catch (e) {
+                        console.warn(`Could not parse items for order ${order.id}`, e);
+                        return [];
+                    }
+                }
+                return [];
+            };
 
-    if (restaurantData) {
-      setRestaurant(restaurantData);
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('restaurant_id', restaurantData.id);
-      
-      if (ordersData) {
-        setOrders(ordersData);
-        
-        // Calculate top items
-        const itemCounts = new Map<string, number>();
-        ordersData.forEach(order => {
-          if (order.order_details) {
-            order.order_details.forEach(item => {
-              itemCounts.set(item.name, (itemCounts.get(item.name) || 0) + item.quantity);
+            ordersData.forEach(order => {
+              const items = getParsedItems(order);
+              items.forEach(item => {
+                if (item && item.name && typeof item.quantity === 'number') {
+                    itemCounts.set(item.name, (itemCounts.get(item.name) || 0) + item.quantity);
+                }
+              });
             });
+            const sortedItems = Array.from(itemCounts.entries())
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 5)
+              .map(([name, count]) => ({ name, count }));
+            setTopItems(sortedItems);
           }
-        });
-        const sortedItems = Array.from(itemCounts.entries())
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 5)
-          .map(([name, count]) => ({ name, count }));
-        setTopItems(sortedItems);
-      }
-      if (ordersError) console.error('Error fetching orders:', ordersError);
+          if (ordersError) console.error('Error fetching orders:', ordersError);
+        }
+        
+        if (restaurantError && restaurantError.code !== 'PGRST116') { // Ignore 'single row not found'
+            console.error('Error fetching restaurant:', restaurantError);
+        }
+    } catch(err) {
+        console.error('An unexpected error occurred while fetching dashboard data:', err);
+    } finally {
+        setLoading(false);
     }
-    
-    if (restaurantError && restaurantError.code !== 'PGRST116') { // Ignore 'single row not found'
-        console.error('Error fetching restaurant:', restaurantError);
-    }
-    
-    setLoading(false);
   }, [user]);
 
   useEffect(() => {

@@ -19,9 +19,28 @@ const getStatusClass = (status: OrderStatus) => {
 }
 
 const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void }> = ({ order, onClose }) => {
-    const mapsUrl = order.customer_lat && order.customer_lng 
-        ? `https://www.google.com/maps/search/?api=1&query=${order.customer_lat},${order.customer_lng}`
+    const mapsUrl = order.latitude && order.longitude 
+        ? `https://www.google.com/maps/search/?api=1&query=${order.latitude},${order.longitude}`
         : null;
+    
+    // Safely parse order items, handling arrays, JSON strings, and invalid data.
+    const getParsedItems = (order: Order) => {
+        const itemsSource = order.order_details || order.items;
+        if (Array.isArray(itemsSource)) {
+            return itemsSource;
+        }
+        if (typeof itemsSource === 'string') {
+            try {
+                const parsed = JSON.parse(itemsSource);
+                return Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                console.error("Failed to parse order details JSON string:", e);
+                return [];
+            }
+        }
+        return [];
+    };
+    const orderItems = getParsedItems(order);
 
     return (
         <Modal isOpen={!!order} onClose={onClose} title={`Order Details: ${order.id.substring(0, 8)}`}>
@@ -65,14 +84,18 @@ const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void }> = ({ or
 
                 <div>
                     <h4 className="font-semibold text-emerald-400 mb-2">Order Items</h4>
-                    <ul className="divide-y divide-slate-800">
-                    {(order.order_details || []).map((item, index) => (
-                        <li key={index} className="py-2 flex justify-between items-center text-sm">
-                            <span className="text-slate-300 font-medium">{item.quantity} x {item.name}</span>
-                            <span className="text-white">₹{(item.price * item.quantity).toFixed(2)}</span>
-                        </li>
-                    ))}
-                    </ul>
+                    {orderItems.length > 0 ? (
+                        <ul className="divide-y divide-slate-800">
+                        {orderItems.map((item, index) => (
+                            <li key={item?.id || index} className="py-2 flex justify-between items-center text-sm">
+                                <span className="text-slate-300 font-medium">{item?.quantity || 1} x {item?.name || 'Unknown Item'}</span>
+                                <span className="text-white">₹{((item?.price || 0) * (item?.quantity || 1)).toFixed(2)}</span>
+                            </li>
+                        ))}
+                        </ul>
+                    ) : (
+                        <p className="text-slate-400 text-sm text-center py-4">No items found for this order.</p>
+                    )}
                     <div className="flex justify-between font-bold text-lg mt-4 pt-4 border-t border-slate-700 text-emerald-400">
                         <span>Grand Total</span>
                         <span>₹{order.total_amount}</span>
@@ -96,7 +119,8 @@ const OrdersPage: React.FC = () => {
                 .from('orders')
                 .select('*')
                 .eq('restaurant_id', restaurantId)
-                .order('created_at', { ascending: false });
+                .order('created_at', { ascending: false })
+                .limit(20);
 
             if (error) throw error;
             if (data) setOrders(data);
@@ -204,7 +228,7 @@ const OrdersPage: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-emerald-400">₹{order.total_amount}</td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        {order.customer_lat ? (
+                                        {order.latitude ? (
                                             <span className="text-emerald-500 flex items-center gap-1 text-xs font-bold">
                                                 <MapPin size={14} /> Smart Tracked
                                             </span>
