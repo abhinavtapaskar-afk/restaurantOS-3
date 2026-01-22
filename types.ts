@@ -35,7 +35,7 @@ export interface CartItem extends MenuItem {
     quantity: number;
 }
 
-export type OrderStatus = 'pending' | 'preparing' | 'delivered' | 'cancelled';
+export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'out_for_delivery' | 'delivered' | 'cancelled';
 export type PaymentMethod = 'COD' | 'UPI';
 
 export interface Order {

@@ -1,3 +1,4 @@
+
 import React from 'react';
 // Correctly import named exports for React Router v6
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -12,6 +13,7 @@ import OrdersPage from './components/dashboard/OrdersPage';
 import AuthWrapper from './components/ui/AuthWrapper';
 import PublicMenuPage from './components/pages/PublicMenuPage';
 import ReviewsPage from './components/dashboard/ReviewsPage';
+import OrderSuccessPage from './components/pages/OrderSuccessPage';
 
 function App() {
   return (
@@ -21,6 +23,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/menu/:slug" element={<PublicMenuPage />} />
+          <Route path="/order-success/:orderId" element={<OrderSuccessPage />} />
           <Route 
             path="/dashboard"
             element={

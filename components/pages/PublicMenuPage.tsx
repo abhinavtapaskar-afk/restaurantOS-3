@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
 import { Restaurant, MenuItem, Review, CartItem, PaymentMethod } from '../../types';
 import { Plus, Minus, ShoppingCart, X, Star, MapPin, Clock, Phone, Navigation, CreditCard, Banknote } from 'lucide-react';
@@ -59,6 +60,7 @@ const CartSidebar: React.FC<{ isOpen: boolean, onClose: () => void, themeColor: 
 
 const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string, restaurant: Restaurant | null }> = ({ onClose, themeColor, restaurant }) => {
     const { cart, total, clearCart } = useCart();
+    const navigate = useNavigate();
     const [customer, setCustomer] = useState<any>(null);
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
@@ -128,24 +130,26 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string, restaur
                 longitude: location?.lng,
                 subtotal: total,
                 total_amount: total,
-                order_details: cart, // Supabase handles array to jsonb
-                items: cart, // Legacy compatibility
+                order_details: cart, 
+                items: cart, 
                 status: 'pending' as const,
                 payment_method: paymentMethod,
                 order_type: 'DELIVERY'
             };
 
-            const { error } = await supabase.from('orders').insert(newOrder);
+            const { data, error } = await supabase.from('orders').insert(newOrder).select('id').single();
             if (error) throw error;
 
             if (paymentMethod === 'UPI') {
                 handleUPIPayment();
-            } else {
-                alert('Order placed successfully (Cash on Delivery)!');
             }
             
             clearCart();
             onClose();
+            // Redirect to order success page for tracking
+            if (data?.id) {
+                navigate(`/order-success/${data.id}`);
+            }
         } catch (err: any) {
             console.error('[Checkout] Submit Error:', err);
             alert(`Could not place order: ${err.message}`);
@@ -320,7 +324,7 @@ const PublicMenuPageContent: React.FC = () => {
                             )}
                         </div>
                         <div className="bg-slate-900 p-6 rounded-lg border border-slate-800">
-                            <MapPin className={`mx-auto mb-3 h-8 w-8 text-${themeColor}-400`} />
+                            <Clock className={`mx-auto mb-3 h-8 w-8 text-${themeColor}-400`} />
                             <h3 className="text-xl font-bold text-white">Opening Hours</h3>
                             <p className="text-slate-400 mt-1 whitespace-pre-line">{restaurant.opening_hours || 'Not specified'}</p>
                             {restaurant.phone_number && (

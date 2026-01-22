@@ -5,17 +5,57 @@ import { useAuth } from '../../hooks/useAuth';
 import { Order, OrderStatus, Restaurant } from '../../types';
 import { cn } from '../../lib/utils';
 import Modal from '../ui/Modal';
-import { Eye, MapPin, Phone, Navigation, ShoppingCart, Banknote, CreditCard } from 'lucide-react';
+import { Eye, MapPin, Phone, Navigation, ShoppingCart, Banknote, CreditCard, ChevronDown } from 'lucide-react';
 
-const getStatusClass = (status: OrderStatus) => {
-    switch (status) {
-        case 'pending': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20';
-        case 'preparing': return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
-        case 'delivered': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-        case 'cancelled': return 'bg-red-500/10 text-red-400 border-red-500/20';
-        default: return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
-    }
-}
+const STATUS_OPTIONS: { value: OrderStatus; label: string; color: string }[] = [
+    { value: 'pending', label: 'Pending', color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' },
+    { value: 'confirmed', label: 'Confirmed', color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
+    { value: 'preparing', label: 'Preparing', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+    { value: 'out_for_delivery', label: 'Out for Delivery', color: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
+    { value: 'delivered', label: 'Delivered', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
+    { value: 'cancelled', label: 'Cancelled', color: 'bg-red-500/10 text-red-400 border-red-500/20' },
+];
+
+const getStatusConfig = (status: OrderStatus) => STATUS_OPTIONS.find(opt => opt.value === status) || STATUS_OPTIONS[0];
+
+const StatusDropdown: React.FC<{ status: OrderStatus, onUpdate: (status: OrderStatus) => void }> = ({ status, onUpdate }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const config = getStatusConfig(status);
+
+    return (
+        <div className="relative">
+            <button 
+                onClick={() => setIsOpen(!isOpen)}
+                className={cn("px-3 py-1 inline-flex items-center gap-2 text-[10px] uppercase font-bold rounded-full border transition-all", config.color)}
+            >
+                {config.label}
+                <ChevronDown size={12} />
+            </button>
+            {isOpen && (
+                <>
+                    <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+                    <div className="absolute right-0 mt-2 w-40 bg-slate-900 border border-slate-700 rounded-md shadow-xl z-20 overflow-hidden">
+                        {STATUS_OPTIONS.map((opt) => (
+                            <button
+                                key={opt.value}
+                                onClick={() => {
+                                    onUpdate(opt.value);
+                                    setIsOpen(false);
+                                }}
+                                className={cn(
+                                    "w-full text-left px-4 py-2 text-xs font-bold uppercase hover:bg-slate-800 transition-colors",
+                                    status === opt.value ? "text-white bg-slate-800" : "text-slate-400"
+                                )}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
 
 const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void }> = ({ order, onClose }) => {
     const mapsUrl = order?.latitude && order?.longitude 
@@ -152,11 +192,16 @@ const OrdersPage: React.FC = () => {
     }, [restaurant, fetchOrders]);
 
     const updateStatus = async (id: string, status: OrderStatus) => {
+        // Optimistic Update: Change local state immediately
+        setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
+        
         try {
             const { error } = await supabase.from('orders').update({ status }).eq('id', id);
             if (error) throw error;
         } catch (err) {
             console.error('[OrdersPage] Status update failed:', err);
+            // Revert on failure (the real-time listener would also eventually correct this)
+            fetchOrders(restaurant?.id || '');
         }
     };
 
@@ -205,15 +250,14 @@ const OrdersPage: React.FC = () => {
                                         )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={cn("px-3 py-1 inline-flex text-[10px] uppercase font-bold rounded-full border", getStatusClass(order.status))}>
-                                            {order.status}
-                                        </span>
+                                        <StatusDropdown 
+                                            status={order.status} 
+                                            onUpdate={(newStatus) => updateStatus(order.id, newStatus)} 
+                                        />
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right">
                                        <div className="flex justify-end gap-2">
                                             <button onClick={() => setSelectedOrder(order)} className="text-slate-400 hover:text-white p-2 rounded-md hover:bg-slate-700 transition-colors"><Eye size={18} /></button>
-                                            {order.status === 'pending' && <button onClick={() => updateStatus(order.id, 'preparing')} className="text-white bg-blue-600 hover:bg-blue-500 px-4 py-1 rounded-md text-xs font-bold transition-all shadow-lg">Prepare</button>}
-                                            {order.status === 'preparing' && <button onClick={() => updateStatus(order.id, 'delivered')} className="text-white bg-emerald-600 hover:bg-emerald-500 px-4 py-1 rounded-md text-xs font-bold transition-all shadow-lg">Deliver</button>}
                                        </div>
                                     </td>
                                 </tr>
