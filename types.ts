@@ -46,6 +46,7 @@ export interface Order {
   customer_lng?: number;
   order_details?: CartItem[];
   items: CartItem[]; // Added for legacy compatibility
+  subtotal: number;
   total_amount: number;
   status: OrderStatus;
   created_at: string;

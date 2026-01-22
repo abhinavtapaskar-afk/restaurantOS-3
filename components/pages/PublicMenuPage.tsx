@@ -130,6 +130,7 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ 
                 customer_address: address,
                 customer_lat: location?.lat,
                 customer_lng: location?.lng,
+                subtotal: total,
                 total_amount: total,
                 order_details: cart,
                 items: cart, // Duplicate cart data for legacy `items` column
