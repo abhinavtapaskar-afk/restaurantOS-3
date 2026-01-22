@@ -132,7 +132,8 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ 
                 customer_lng: location?.lng,
                 total_amount: total,
                 order_details: cart,
-                status: 'pending' as const
+                status: 'pending' as const,
+                order_type: 'Delivery' // Add default order_type
             };
 
             const { error } = await supabase.from('orders').insert(newOrder);

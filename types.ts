@@ -48,6 +48,7 @@ export interface Order {
   total_amount: number;
   status: OrderStatus;
   created_at: string;
+  order_type: string; // Added to satisfy not-null constraint
 }
 
 export interface Review {
