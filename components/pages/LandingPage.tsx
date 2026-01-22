@@ -1,6 +1,4 @@
-
 import React from 'react';
-// Import Link from react-router-dom clearly for the compiler
 import { Link } from 'react-router-dom';
 import { UtensilsCrossed, LogIn } from 'lucide-react';
 

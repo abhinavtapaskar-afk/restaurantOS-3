@@ -17,6 +17,7 @@ export interface Restaurant {
   phone_number?: string;
   opening_hours?: string;
   google_maps_url?: string;
+  upi_id?: string;
 }
 
 export interface MenuItem {
@@ -35,6 +36,7 @@ export interface CartItem extends MenuItem {
 }
 
 export type OrderStatus = 'pending' | 'preparing' | 'delivered' | 'cancelled';
+export type PaymentMethod = 'COD' | 'UPI';
 
 export interface Order {
   id: string;
@@ -44,13 +46,14 @@ export interface Order {
   customer_address?: string;
   latitude?: number;
   longitude?: number;
-  order_details?: CartItem[];
-  items: CartItem[]; // Added for legacy compatibility
+  order_details?: CartItem[] | string;
+  items?: CartItem[] | string;
   subtotal: number;
   total_amount: number;
   status: OrderStatus;
+  payment_method: PaymentMethod;
   created_at: string;
-  order_type: string; // Added to satisfy not-null constraint
+  order_type: string;
 }
 
 export interface Review {

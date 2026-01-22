@@ -1,7 +1,5 @@
-
 import React from 'react';
 import { useAuth } from '../../hooks/useAuth';
-// Ensure named exports are correctly imported from react-router-dom
 import { Navigate, useLocation } from 'react-router-dom';
 
 const AuthWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {

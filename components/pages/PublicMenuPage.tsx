@@ -1,10 +1,8 @@
-
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
-// Import useParams correctly from react-router-dom
 import { useParams } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
-import { Restaurant, MenuItem, Review, CartItem } from '../../types';
-import { Plus, Minus, ShoppingCart, X, Star, MapPin, Clock, Phone, Navigation } from 'lucide-react';
+import { Restaurant, MenuItem, Review, CartItem, PaymentMethod } from '../../types';
+import { Plus, Minus, ShoppingCart, X, Star, MapPin, Clock, Phone, Navigation, CreditCard, Banknote } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import Modal from '../ui/Modal';
 
@@ -22,7 +20,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return (<CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQuantity, clearCart, total, itemCount }}>{children}</CartContext.Provider>);
 };
 
-const CartSidebar: React.FC<{ isOpen: boolean, onClose: () => void, themeColor: string }> = ({ isOpen, onClose, themeColor }) => {
+const CartSidebar: React.FC<{ isOpen: boolean, onClose: () => void, themeColor: string, restaurant: Restaurant | null }> = ({ isOpen, onClose, themeColor, restaurant }) => {
     const { cart, updateQuantity, total, itemCount } = useCart();
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
     return (<>
@@ -55,18 +53,18 @@ const CartSidebar: React.FC<{ isOpen: boolean, onClose: () => void, themeColor: 
                 </div></>) : (<div className="flex-1 flex flex-col items-center justify-center text-slate-500"><ShoppingCart size={48} /><p className="mt-4">Your cart is empty</p></div>)}
             </div>
         </div>
-        {isCheckoutOpen && <CheckoutModal onClose={() => setIsCheckoutOpen(false)} themeColor={themeColor} />}
+        {isCheckoutOpen && <CheckoutModal onClose={() => setIsCheckoutOpen(false)} themeColor={themeColor} restaurant={restaurant} />}
     </>);
 };
 
-const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ onClose, themeColor }) => {
+const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string, restaurant: Restaurant | null }> = ({ onClose, themeColor, restaurant }) => {
     const { cart, total, clearCart } = useCart();
-    const { slug } = useParams<{ slug: string }>();
     const [customer, setCustomer] = useState<any>(null);
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [address, setAddress] = useState('');
     const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
+    const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD');
     const [isLocating, setIsLocating] = useState(false);
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
     const isReadyToOrder = location !== null;
@@ -80,15 +78,6 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ 
         });
     }, []);
 
-    const handleGoogleLogin = async () => {
-        try {
-            const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } });
-            if (error) throw error;
-        } catch (err) {
-            console.error('[Checkout] OAuth Error:', err);
-        }
-    };
-
     const detectLocation = () => {
         setIsLocating(true);
         if (!navigator.geolocation) {
@@ -96,7 +85,6 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ 
             setIsLocating(false);
             return;
         }
-
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 setLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
@@ -111,6 +99,15 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ 
         );
     };
 
+    const handleUPIPayment = () => {
+        if (!restaurant?.upi_id) {
+            alert("UPI payment is not configured for this restaurant yet.");
+            return;
+        }
+        const upiUrl = `upi://pay?pa=${restaurant.upi_id}&pn=${encodeURIComponent(restaurant.name)}&am=${total}&cu=INR`;
+        window.location.href = upiUrl;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!isReadyToOrder) {
@@ -120,11 +117,10 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ 
 
         setIsPlacingOrder(true);
         try {
-            const { data: restaurantData } = await supabase.from('restaurants').select('id').eq('slug', slug).single();
-            if (!restaurantData) throw new Error("Restaurant not found.");
+            if (!restaurant) throw new Error("Restaurant data missing.");
 
             const newOrder = {
-                restaurant_id: restaurantData.id,
+                restaurant_id: restaurant.id,
                 customer_name: name,
                 customer_phone: phone,
                 customer_address: address,
@@ -132,16 +128,22 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ 
                 longitude: location?.lng,
                 subtotal: total,
                 total_amount: total,
-                order_details: cart,
-                items: cart, // Duplicate cart data for legacy `items` column
+                order_details: cart, // Supabase handles array to jsonb
+                items: cart, // Legacy compatibility
                 status: 'pending' as const,
+                payment_method: paymentMethod,
                 order_type: 'DELIVERY'
             };
 
             const { error } = await supabase.from('orders').insert(newOrder);
             if (error) throw error;
 
-            alert('Order placed successfully!');
+            if (paymentMethod === 'UPI') {
+                handleUPIPayment();
+            } else {
+                alert('Order placed successfully (Cash on Delivery)!');
+            }
+            
             clearCart();
             onClose();
         } catch (err: any) {
@@ -154,30 +156,6 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ 
 
     return (
         <Modal isOpen={true} onClose={onClose} title="Complete Your Order">
-            {!customer ? (
-                <div className="space-y-4 text-center">
-                    <p className="text-slate-400">Sign in to automatically fill your details.</p>
-                    <button onClick={handleGoogleLogin} className="w-full flex items-center justify-center gap-3 bg-white text-slate-900 font-bold py-3 rounded-lg hover:bg-slate-100 transition-colors">
-                        <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="Google" />
-                        Sign in with Google
-                    </button>
-                    <div className="relative py-2">
-                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-800"></div></div>
-                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-slate-900 px-2 text-slate-500">Or continue as guest</span></div>
-                    </div>
-                </div>
-            ) : (
-                <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-md flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center font-bold text-white">
-                        {name[0]?.toUpperCase()}
-                    </div>
-                    <div>
-                        <p className="text-sm font-bold text-white">Signed in as {name}</p>
-                        <p className="text-xs text-slate-400">{customer.email}</p>
-                    </div>
-                </div>
-            )}
-
             <form onSubmit={handleSubmit} className="space-y-4">
                 <input type="text" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} required className="w-full bg-slate-800 p-2 rounded-md border border-slate-700"/>
                 <input type="tel" placeholder="Phone Number" value={phone} onChange={e => setPhone(e.target.value)} required className="w-full bg-slate-800 p-2 rounded-md border border-slate-700"/>
@@ -192,11 +170,37 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ 
                     {location ? (
                          <p className="text-xs text-emerald-400 text-right">✓ Accurate location captured!</p>
                     ) : (
-                         <p className="text-xs text-amber-400 text-right">Click the button to detect location for faster delivery.</p>
+                         <p className="text-xs text-amber-400 text-right">Detect location for faster delivery.</p>
                     )}
                 </div>
 
-                <button type="submit" disabled={isPlacingOrder || !isReadyToOrder} className={`w-full bg-${themeColor}-600 text-white font-bold py-3 rounded-lg hover:bg-${themeColor}-500 disabled:bg-slate-700 disabled:cursor-not-allowed`}>{isPlacingOrder ? 'Placing Order...' : `Place Order (₹${total.toFixed(2)})`}</button>
+                <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Payment Method</label>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button 
+                            type="button" 
+                            onClick={() => setPaymentMethod('COD')}
+                            className={cn("flex flex-col items-center gap-2 p-3 rounded-lg border transition-all", paymentMethod === 'COD' ? `border-${themeColor}-500 bg-${themeColor}-500/10 text-white` : "border-slate-700 bg-slate-800 text-slate-400")}
+                        >
+                            <Banknote size={24} />
+                            <span className="text-xs font-bold">Cash</span>
+                        </button>
+                        <button 
+                            type="button" 
+                            disabled={!restaurant?.upi_id}
+                            onClick={() => setPaymentMethod('UPI')}
+                            className={cn("flex flex-col items-center gap-2 p-3 rounded-lg border transition-all", paymentMethod === 'UPI' ? `border-${themeColor}-500 bg-${themeColor}-500/10 text-white` : "border-slate-700 bg-slate-800 text-slate-400", !restaurant?.upi_id && "opacity-50 cursor-not-allowed")}
+                        >
+                            <CreditCard size={24} />
+                            <span className="text-xs font-bold">UPI / Online</span>
+                        </button>
+                    </div>
+                    {!restaurant?.upi_id && <p className="text-[10px] text-red-400 italic">Online payment is currently unavailable for this restaurant.</p>}
+                </div>
+
+                <button type="submit" disabled={isPlacingOrder || !isReadyToOrder} className={`w-full bg-${themeColor}-600 text-white font-bold py-3 rounded-lg hover:bg-${themeColor}-500 disabled:bg-slate-700 disabled:cursor-not-allowed flex items-center justify-center gap-2`}>
+                    {isPlacingOrder ? 'Placing Order...' : (paymentMethod === 'UPI' ? `Pay & Order (₹${total.toFixed(2)})` : `Place Order (₹${total.toFixed(2)})`)}
+                </button>
             </form>
         </Modal>
     );
@@ -302,20 +306,6 @@ const PublicMenuPageContent: React.FC = () => {
                     ))}
                 </section>
 
-                {reviews.length > 0 && (
-                <section>
-                     <h2 className={`text-3xl font-bold text-${themeColor}-400 text-center mb-8`}>What Our Customers Say</h2>
-                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {reviews.map(review => (
-                            <div key={review.id} className="bg-slate-900 p-6 rounded-lg border border-slate-800">
-                                <div className="flex justify-between items-center"><p className="font-bold text-white">{review.customer_name}</p><div className="flex gap-1">{[...Array(review.rating)].map((_, i) => <Star key={i} size={16} className="text-yellow-400 fill-yellow-400" />)}</div></div>
-                                <p className="text-slate-400 mt-2 italic">"{review.comment}"</p>
-                            </div>
-                        ))}
-                     </div>
-                </section>
-                )}
-
                 <section>
                     <h2 className={`text-3xl font-bold text-${themeColor}-400 text-center mb-8`}>Location & Contact</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-center">
@@ -330,7 +320,7 @@ const PublicMenuPageContent: React.FC = () => {
                             )}
                         </div>
                         <div className="bg-slate-900 p-6 rounded-lg border border-slate-800">
-                            <Clock className={`mx-auto mb-3 h-8 w-8 text-${themeColor}-400`} />
+                            <MapPin className={`mx-auto mb-3 h-8 w-8 text-${themeColor}-400`} />
                             <h3 className="text-xl font-bold text-white">Opening Hours</h3>
                             <p className="text-slate-400 mt-1 whitespace-pre-line">{restaurant.opening_hours || 'Not specified'}</p>
                             {restaurant.phone_number && (
@@ -354,7 +344,7 @@ const PublicMenuPageContent: React.FC = () => {
                 <ShoppingCart size={28} />
                 {itemCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">{itemCount}</span>}
             </button>
-            <CartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} themeColor={themeColor} />
+            <CartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} themeColor={themeColor} restaurant={restaurant} />
         </div>
     );
 };

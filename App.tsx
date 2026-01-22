@@ -1,13 +1,12 @@
-
 import React from 'react';
-// Cleaned up the imports to ensure the environment picks up the correct named exports for React Router v6
+// Correctly import named exports for React Router v6
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
 import LandingPage from './components/pages/LandingPage';
 import LoginPage from './components/pages/LoginPage';
 import DashboardLayout from './components/dashboard/DashboardLayout';
 import DashboardPage from './components/dashboard/DashboardPage';
-import SettingsPage from './components/dashboard/SettingsPage';
+import SettingsPage from './components/pages/SettingsPage';
 import MenuPage from './components/dashboard/MenuPage';
 import OrdersPage from './components/dashboard/OrdersPage';
 import AuthWrapper from './components/ui/AuthWrapper';

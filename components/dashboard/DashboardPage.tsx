@@ -1,10 +1,8 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
-// Explicitly import Link for the compiler
 import { Link } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
-import { Restaurant, Order, MenuItem } from '../../types';
+import { Restaurant, Order } from '../../types';
 import { DollarSign, ShoppingBag, PawPrint, AlertTriangle, BarChart, Utensils } from 'lucide-react';
 
 const StatCard: React.FC<{ title: string; value: string; icon: React.ElementType }> = ({ title, value, icon: Icon }) => (
@@ -35,33 +33,24 @@ const DashboardPage: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
-        const { data: restaurantData, error: restaurantError } = await supabase
-          .from('restaurants')
-          .select('*')
-          .eq('owner_id', user.id)
-          .single();
+        const { data: restaurantData } = await supabase.from('restaurants').select('*').eq('owner_id', user.id).maybeSingle();
 
         if (restaurantData) {
           setRestaurant(restaurantData);
-          const { data: ordersData, error: ordersError } = await supabase
-            .from('orders')
-            .select('*')
-            .eq('restaurant_id', restaurantData.id);
+          const { data: ordersData } = await supabase.from('orders').select('*').eq('restaurant_id', restaurantData.id);
           
           if (ordersData) {
             setOrders(ordersData);
             
-            // Calculate top items safely
             const itemCounts = new Map<string, number>();
             const getParsedItems = (order: Order) => {
-                const itemsSource = order.order_details || order.items;
+                const itemsSource = order?.order_details || order?.items;
                 if (Array.isArray(itemsSource)) return itemsSource;
                 if (typeof itemsSource === 'string') {
                     try {
                         const parsed = JSON.parse(itemsSource);
                         return Array.isArray(parsed) ? parsed : [];
                     } catch (e) {
-                        console.warn(`Could not parse items for order ${order.id}`, e);
                         return [];
                     }
                 }
@@ -70,8 +59,8 @@ const DashboardPage: React.FC = () => {
 
             ordersData.forEach(order => {
               const items = getParsedItems(order);
-              items.forEach(item => {
-                if (item && item.name && typeof item.quantity === 'number') {
+              items.forEach((item: any) => {
+                if (item?.name && typeof item?.quantity === 'number') {
                     itemCounts.set(item.name, (itemCounts.get(item.name) || 0) + item.quantity);
                 }
               });
@@ -82,14 +71,9 @@ const DashboardPage: React.FC = () => {
               .map(([name, count]) => ({ name, count }));
             setTopItems(sortedItems);
           }
-          if (ordersError) console.error('Error fetching orders:', ordersError);
-        }
-        
-        if (restaurantError && restaurantError.code !== 'PGRST116') { // Ignore 'single row not found'
-            console.error('Error fetching restaurant:', restaurantError);
         }
     } catch(err) {
-        console.error('An unexpected error occurred while fetching dashboard data:', err);
+        console.error('Dashboard Error:', err);
     } finally {
         setLoading(false);
     }
@@ -99,24 +83,15 @@ const DashboardPage: React.FC = () => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  if (loading) {
-    return <div className="text-center p-8">Loading dashboard...</div>;
-  }
+  if (loading) return <div className="text-center p-8 text-slate-400">Analyzing data...</div>;
 
   if (!restaurant) {
     return (
       <div className="flex flex-col items-center justify-center h-full bg-slate-900/50 border-2 border-dashed border-slate-800 rounded-lg p-8 text-center">
         <AlertTriangle className="text-yellow-500" size={48} />
         <h2 className="mt-4 text-2xl font-semibold text-white">Setup Required</h2>
-        <p className="mt-2 text-slate-400">
-          You need to set up your restaurant details before you can see the dashboard.
-        </p>
-        <Link
-          to="/dashboard/settings"
-          className="mt-6 bg-emerald-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-emerald-500 transition-colors"
-        >
-          Go to Settings
-        </Link>
+        <p className="mt-2 text-slate-400">Complete your restaurant profile to activate the dashboard.</p>
+        <Link to="/dashboard/settings" className="mt-6 bg-emerald-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-emerald-500 transition-colors">Go to Settings</Link>
       </div>
     );
   }
@@ -124,12 +99,12 @@ const DashboardPage: React.FC = () => {
   const deliveredOrders = orders.filter(o => o.status === 'delivered');
   const totalRevenue = deliveredOrders.reduce((acc, order) => acc + Number(order.total_amount), 0);
   const totalOrders = orders.length;
-  const avgOrderValue = totalOrders > 0 ? totalRevenue / deliveredOrders.length : 0;
+  const avgOrderValue = totalOrders > 0 ? totalRevenue / Math.max(deliveredOrders.length, 1) : 0;
   const animalsFed = Math.floor(totalOrders * 0.05);
 
   return (
     <div>
-      <h1 className="text-3xl font-bold mb-6 text-white">Welcome, {restaurant.name}</h1>
+      <h1 className="text-3xl font-bold mb-6 text-white">{restaurant.name} Overview</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Total Revenue" value={`₹${totalRevenue.toFixed(2)}`} icon={DollarSign} />
         <StatCard title="Total Orders" value={totalOrders.toString()} icon={ShoppingBag} />
@@ -138,7 +113,7 @@ const DashboardPage: React.FC = () => {
       </div>
 
       <div className="mt-8">
-        <h2 className="text-2xl font-bold text-white mb-4">Top Selling Items</h2>
+        <h2 className="text-2xl font-bold text-white mb-4">Top Sellers</h2>
         {topItems.length > 0 ? (
           <div className="bg-slate-800/50 p-6 rounded-lg border border-slate-700">
             <ul className="space-y-4">
@@ -148,14 +123,14 @@ const DashboardPage: React.FC = () => {
                     <Utensils size={18} className="text-slate-500"/>
                     <span className="font-medium text-slate-300">{item.name}</span>
                   </div>
-                  <span className="font-bold text-white bg-slate-700 px-2 py-0.5 rounded-md text-sm">{item.count} sold</span>
+                  <span className="font-bold text-white bg-slate-700 px-2 py-0.5 rounded-md text-sm">{item.count} qty</span>
                 </li>
               ))}
             </ul>
           </div>
         ) : (
           <div className="text-center py-10 bg-slate-800/50 border-2 border-dashed border-slate-800 rounded-lg">
-            <p className="text-slate-400">No order data yet to show top items.</p>
+            <p className="text-slate-400">Waiting for first orders to calculate metrics.</p>
           </div>
         )}
       </div>

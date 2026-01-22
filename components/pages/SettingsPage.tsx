@@ -4,7 +4,7 @@ import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { Restaurant } from '../../types';
 import { cn } from '../../lib/utils';
-import { Check } from 'lucide-react';
+import { Check, CreditCard } from 'lucide-react';
 
 const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...props }, ref) => (
@@ -50,7 +50,7 @@ const SettingsPage: React.FC = () => {
     const [formState, setFormState] = useState({
         name: '', city: 'Nanded', subdomain: '', address: '', phone: '', about: '',
         theme_color: 'emerald', font: 'Inter', hero_title: '', hero_subtitle: '',
-        opening_hours: '', google_maps_url: '',
+        opening_hours: '', google_maps_url: '', upi_id: ''
     });
     const [heroImageFile, setHeroImageFile] = useState<File | null>(null);
     
@@ -79,9 +79,8 @@ const SettingsPage: React.FC = () => {
                     theme_color: data.theme_color || 'emerald', font: data.font || 'Inter',
                     hero_title: data.hero_title || '', hero_subtitle: data.hero_subtitle || '',
                     opening_hours: data.opening_hours || '', google_maps_url: data.google_maps_url || '',
+                    upi_id: data.upi_id || ''
                 });
-            } else {
-                setFormState(prev => ({...prev, subdomain: createSlug(prev.name)}));
             }
         } catch (err: any) {
             console.error('[SettingsPage] Error fetching restaurant:', err);
@@ -110,7 +109,7 @@ const SettingsPage: React.FC = () => {
             }
 
             const upsertData = {
-                id: restaurant?.id || undefined, // Allow Supabase to handle UUID generation for new rows
+                id: restaurant?.id, // Supabase handles undefined as new insert
                 owner_id: user.id,
                 name: formState.name,
                 city: formState.city,
@@ -125,11 +124,11 @@ const SettingsPage: React.FC = () => {
                 opening_hours: formState.opening_hours,
                 google_maps_url: formState.google_maps_url,
                 subdomain: formState.subdomain,
+                upi_id: formState.upi_id,
                 slug: restaurant?.slug || (createSlug(formState.name) + '-' + Math.random().toString(36).substring(2, 8))
             };
 
             const { error } = await supabase.from('restaurants').upsert(upsertData, { onConflict: 'id' });
-            
             if (error) throw error;
 
             setMessage({ type: 'success', text: 'Settings saved successfully!' });
@@ -163,13 +162,13 @@ const SettingsPage: React.FC = () => {
                                 <Input type="text" id="city" value={formState.city} onChange={handleInputChange} required />
                             </div>
                         </div>
-                        <div>
-                            <label htmlFor="subdomain" className="block text-sm font-medium text-slate-300 mb-1">Subdomain</label>
-                            <div className="flex mt-1">
-                                <Input type="text" id="subdomain" value={formState.subdomain} onChange={handleInputChange} required />
-                                <span className="inline-flex items-center px-3 rounded-r-md border border-l-0 border-slate-700 bg-slate-700 text-slate-400 text-sm">.restaurantos.app</span>
-                            </div>
-                            {!!restaurant && <p className="mt-2 text-xs text-yellow-400">Warning: Changing your subdomain will change your public website URL.</p>}
+                         <div>
+                            <label htmlFor="upi_id" className="block text-sm font-medium text-slate-300 mb-1 flex items-center gap-2">
+                                <CreditCard size={16} className="text-emerald-500" />
+                                Business UPI ID (for Online Payments)
+                            </label>
+                            <Input type="text" id="upi_id" value={formState.upi_id} onChange={handleInputChange} placeholder="e.g., business@okaxis" />
+                            <p className="mt-1 text-xs text-slate-500 italic">Customers will see a Pay via UPI option during checkout.</p>
                         </div>
                     </div>
                 </section>
