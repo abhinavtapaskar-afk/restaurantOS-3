@@ -3,10 +3,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { Order, OrderStatus, Restaurant } from '../../types';
-import { cn } from '../../lib/utils';
+import { cn, safeParse } from '../../lib/utils';
 import Modal from '../ui/Modal';
 import { Eye, MapPin, Phone, Navigation, ShoppingCart, Banknote, CreditCard, ChevronDown } from 'lucide-react';
 
+// AUDIT FIX: Hardcoded status array for guaranteed availability
 const STATUS_OPTIONS: { value: OrderStatus; label: string; color: string }[] = [
     { value: 'pending', label: 'Pending', color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' },
     { value: 'confirmed', label: 'Confirmed', color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
@@ -34,7 +35,7 @@ const StatusDropdown: React.FC<{ status: OrderStatus, onUpdate: (status: OrderSt
             {isOpen && (
                 <>
                     <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-                    <div className="absolute right-0 mt-2 w-40 bg-slate-900 border border-slate-700 rounded-md shadow-xl z-20 overflow-hidden">
+                    <div className="absolute right-0 mt-2 w-48 bg-slate-900 border border-slate-700 rounded-md shadow-xl z-20 overflow-hidden">
                         {STATUS_OPTIONS.map((opt) => (
                             <button
                                 key={opt.value}
@@ -43,8 +44,8 @@ const StatusDropdown: React.FC<{ status: OrderStatus, onUpdate: (status: OrderSt
                                     setIsOpen(false);
                                 }}
                                 className={cn(
-                                    "w-full text-left px-4 py-2 text-xs font-bold uppercase hover:bg-slate-800 transition-colors",
-                                    status === opt.value ? "text-white bg-slate-800" : "text-slate-400"
+                                    "w-full text-left px-4 py-3 text-[10px] font-bold uppercase hover:bg-slate-800 transition-colors border-b border-slate-800 last:border-0",
+                                    status === opt.value ? "text-emerald-400 bg-emerald-500/5" : "text-slate-400"
                                 )}
                             >
                                 {opt.label}
@@ -57,51 +58,39 @@ const StatusDropdown: React.FC<{ status: OrderStatus, onUpdate: (status: OrderSt
     );
 };
 
-const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void }> = ({ order, onClose }) => {
+const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void, onStatusUpdate: (status: OrderStatus) => void }> = ({ order, onClose, onStatusUpdate }) => {
     const mapsUrl = order?.latitude && order?.longitude 
         ? `https://www.google.com/maps/search/?api=1&query=${order.latitude},${order.longitude}`
         : null;
     
-    const getParsedItems = (order: Order) => {
-        const itemsSource = order?.order_details || order?.items;
-        if (Array.isArray(itemsSource)) return itemsSource;
-        if (typeof itemsSource === 'string') {
-            try {
-                const parsed = JSON.parse(itemsSource);
-                return Array.isArray(parsed) ? parsed : [];
-            } catch (e) {
-                console.error("Failed to parse order details:", e);
-                return [];
-            }
-        }
-        return [];
-    };
-    const orderItems = getParsedItems(order);
+    const orderItems = safeParse<any[]>(order.order_details || order.items, []);
 
     return (
         <Modal isOpen={!!order} onClose={onClose} title={`Order: ${order?.id?.substring(0, 8).toUpperCase()}`}>
             <div className="space-y-6">
-                <div>
+                <div className="flex justify-between items-start">
                     <h4 className="font-semibold text-emerald-400 mb-2">Customer Info</h4>
-                    <div className="space-y-2 text-sm">
-                        <p className="flex items-center gap-2"><span className="text-slate-500 w-16">Name:</span> <span className="text-white">{order?.customer_name}</span></p>
-                        <p className="flex items-center gap-2">
-                            <span className="text-slate-500 w-16">Phone:</span> 
-                            <a href={`tel:${order?.customer_phone}`} className="text-emerald-400 hover:underline flex items-center gap-1 font-bold">
-                                <Phone size={14} /> {order?.customer_phone}
-                            </a>
-                        </p>
-                        <p className="flex items-start gap-2">
-                            <span className="text-slate-500 w-16 mt-0.5">Address:</span> 
-                            <span className="text-white flex-1">{order?.customer_address || 'No address notes'}</span>
-                        </p>
-                        <p className="flex items-center gap-2">
-                            <span className="text-slate-500 w-16">Payment:</span> 
-                            <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold uppercase border", order?.payment_method === 'UPI' ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-orange-500/10 text-orange-400 border-orange-500/20")}>
-                                {order?.payment_method || 'COD'}
-                            </span>
-                        </p>
-                    </div>
+                    <StatusDropdown status={order.status} onUpdate={onStatusUpdate} />
+                </div>
+                
+                <div className="space-y-2 text-sm">
+                    <p className="flex items-center gap-2"><span className="text-slate-500 w-16">Name:</span> <span className="text-white">{order?.customer_name}</span></p>
+                    <p className="flex items-center gap-2">
+                        <span className="text-slate-500 w-16">Phone:</span> 
+                        <a href={`tel:${order?.customer_phone}`} className="text-emerald-400 hover:underline flex items-center gap-1 font-bold">
+                            <Phone size={14} /> {order?.customer_phone}
+                        </a>
+                    </p>
+                    <p className="flex items-start gap-2">
+                        <span className="text-slate-500 w-16 mt-0.5">Address:</span> 
+                        <span className="text-white flex-1">{order?.customer_address || 'No address notes'}</span>
+                    </p>
+                    <p className="flex items-center gap-2">
+                        <span className="text-slate-500 w-16">Payment:</span> 
+                        <span className={cn("px-2 py-0.5 rounded text-[10px] font-bold uppercase border", order?.payment_method === 'UPI' ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-orange-500/10 text-orange-400 border-orange-500/20")}>
+                            {order?.payment_method || 'COD'}
+                        </span>
+                    </p>
                 </div>
 
                 {mapsUrl && (
@@ -131,7 +120,7 @@ const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void }> = ({ or
                         {orderItems.map((item: any, index: number) => (
                             <li key={item?.id || index} className="py-2 flex justify-between items-center text-sm">
                                 <span className="text-slate-300 font-medium">{item?.quantity || 1} x {item?.name || 'Item'}</span>
-                                <span className="text-white">₹{((item?.price || 0) * (item?.quantity || 1)).toFixed(2)}</span>
+                                <span className="text-white">₹{((Number(item?.price) || 0) * (Number(item?.quantity) || 1)).toFixed(2)}</span>
                             </li>
                         ))}
                         </ul>
@@ -140,7 +129,7 @@ const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void }> = ({ or
                     )}
                     <div className="flex justify-between font-bold text-lg mt-4 pt-4 border-t border-slate-700 text-emerald-400">
                         <span>Total Amount</span>
-                        <span>₹{order?.total_amount}</span>
+                        <span>₹{Number(order?.total_amount).toFixed(2)}</span>
                     </div>
                 </div>
             </div>
@@ -187,20 +176,26 @@ const OrdersPage: React.FC = () => {
 
     useEffect(() => {
         if (!restaurant) return;
-        const channel = supabase.channel(`orders-${restaurant.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${restaurant.id}` }, () => fetchOrders(restaurant.id)).subscribe();
+        const channel = supabase.channel(`orders-live-sync-${restaurant.id}`)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${restaurant.id}` }, () => {
+                fetchOrders(restaurant.id);
+            })
+            .subscribe();
         return () => { supabase.removeChannel(channel); }
     }, [restaurant, fetchOrders]);
 
     const updateStatus = async (id: string, status: OrderStatus) => {
-        // Optimistic Update: Change local state immediately
+        // Optimistic Update for UI snappiness
         setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
+        if (selectedOrder && selectedOrder.id === id) {
+            setSelectedOrder({ ...selectedOrder, status });
+        }
         
         try {
             const { error } = await supabase.from('orders').update({ status }).eq('id', id);
             if (error) throw error;
         } catch (err) {
             console.error('[OrdersPage] Status update failed:', err);
-            // Revert on failure (the real-time listener would also eventually correct this)
             fetchOrders(restaurant?.id || '');
         }
     };
@@ -241,7 +236,7 @@ const OrdersPage: React.FC = () => {
                                         <div className="text-sm font-bold text-white">{order.customer_name || 'Guest'}</div>
                                         <div className="text-xs text-slate-500">{order.customer_phone}</div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-emerald-400">₹{order.total_amount}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-emerald-400">₹{Number(order.total_amount).toFixed(2)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         {order.payment_method === 'UPI' ? (
                                             <span className="text-blue-400 flex items-center gap-1 text-[10px] font-bold uppercase"><CreditCard size={12} /> UPI</span>
@@ -272,7 +267,13 @@ const OrdersPage: React.FC = () => {
                     )}
                 </div>
             </div>
-            {selectedOrder && <OrderDetailsModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />}
+            {selectedOrder && (
+                <OrderDetailsModal 
+                    order={selectedOrder} 
+                    onClose={() => setSelectedOrder(null)} 
+                    onStatusUpdate={(newStatus) => updateStatus(selectedOrder.id, newStatus)}
+                />
+            )}
         </div>
     );
 };

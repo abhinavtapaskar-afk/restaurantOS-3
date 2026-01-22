@@ -50,8 +50,8 @@ const OrderSuccessPage: React.FC = () => {
     useEffect(() => {
         fetchOrderDetails();
 
-        // Subscribe to real-time status updates
-        const channel = supabase.channel(`order-track-${orderId}`)
+        // AUDIT FIX: Real-time status sync for public tracking
+        const channel = supabase.channel(`order-track-public-sync-${orderId}`)
             .on('postgres_changes', {
                 event: 'UPDATE',
                 schema: 'public',
@@ -178,7 +178,7 @@ const OrderSuccessPage: React.FC = () => {
                         </div>
                         <div className="pt-4 border-t border-slate-800 flex justify-between items-center">
                             <span className="text-slate-400 font-bold">Total Paid</span>
-                            <span className="text-xl font-bold text-emerald-400">₹{order.total_amount}</span>
+                            <span className="text-xl font-bold text-emerald-400">₹{Number(order.total_amount).toFixed(2)}</span>
                         </div>
                     </div>
                 </div>

@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Utensils, ShoppingCart, Settings, Heart, LogOut, User as UserIcon, ExternalLink, Star } from 'lucide-react';
+import { LayoutDashboard, Utensils, ShoppingCart, Settings, Heart, LogOut, User as UserIcon, ExternalLink, Star, Wifi, WifiOff } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../services/supabase';
 
@@ -16,15 +17,21 @@ const DashboardLayout: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [restaurantSlug, setRestaurantSlug] = useState<string | null>(null);
+  const [dbHealthy, setDbHealthy] = useState<boolean | null>(null);
 
   useEffect(() => {
     const fetchRestaurantSlug = async () => {
       if (!user) return;
-      const { data } = await supabase
+      
+      // Health check & slug fetch
+      const { data, error } = await supabase
         .from('restaurants')
         .select('slug')
         .eq('owner_id', user.id)
-        .single();
+        .maybeSingle();
+      
+      setDbHealthy(!error);
+      
       if (data) {
         setRestaurantSlug(data.slug);
       }
@@ -68,7 +75,19 @@ const DashboardLayout: React.FC = () => {
             ))}
           </ul>
         </nav>
-        <div className="mt-auto">
+        <div className="mt-auto space-y-4">
+          <div className="flex items-center justify-between px-3 py-2 bg-slate-800/50 rounded-lg text-[10px] font-bold uppercase tracking-wider">
+            <span className="text-slate-500">System Status</span>
+            <div className="flex items-center gap-1">
+              {dbHealthy === null ? (
+                <span className="text-slate-500">Checking...</span>
+              ) : dbHealthy ? (
+                <span className="text-emerald-500 flex items-center gap-1"><Wifi size={10} /> Online</span>
+              ) : (
+                <span className="text-red-500 flex items-center gap-1"><WifiOff size={10} /> Error</span>
+              )}
+            </div>
+          </div>
           <div className="flex items-center justify-center gap-2 bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-lg text-emerald-400">
             <Heart size={18} />
             <span className="font-semibold text-sm">Mission: Feed Strays</span>

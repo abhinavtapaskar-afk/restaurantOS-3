@@ -60,8 +60,6 @@ const CartSidebar: React.FC<{ isOpen: boolean, onClose: () => void, themeColor: 
 
 const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string, restaurant: Restaurant | null }> = ({ onClose, themeColor, restaurant }) => {
     const { cart, total, clearCart } = useCart();
-    const navigate = useNavigate();
-    const [customer, setCustomer] = useState<any>(null);
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
     const [address, setAddress] = useState('');
@@ -74,7 +72,6 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string, restaur
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (session?.user) {
-                setCustomer(session.user);
                 setName(session.user.user_metadata.full_name || '');
             }
         });
@@ -146,9 +143,10 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string, restaur
             
             clearCart();
             onClose();
-            // Redirect to order success page for tracking
+
+            // AUDIT FIX: Hard Redirect to track the order successfully
             if (data?.id) {
-                navigate(`/order-success/${data.id}`);
+                window.location.hash = `#/order-success/${data.id}`;
             }
         } catch (err: any) {
             console.error('[Checkout] Submit Error:', err);
@@ -225,7 +223,6 @@ const PublicMenuPageContent: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-    const [reviews, setReviews] = useState<Review[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isCartOpen, setIsCartOpen] = useState(false);
@@ -242,8 +239,6 @@ const PublicMenuPageContent: React.FC = () => {
             setRestaurant(restaurantData);
             const { data: menuData } = await supabase.from('menu_items').select('*').eq('restaurant_id', restaurantData.id).eq('is_available', true).order('category');
             if(menuData) setMenuItems(menuData);
-            const { data: reviewData } = await supabase.from('reviews').select('*').eq('restaurant_id', restaurantData.id).eq('is_visible', true).order('created_at', { ascending: false });
-            if(reviewData) setReviews(reviewData);
         } catch (err: any) {
             console.error('[PublicMenu] Error fetching data:', err);
             setError(err.message);

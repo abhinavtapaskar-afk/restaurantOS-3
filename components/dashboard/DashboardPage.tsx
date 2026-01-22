@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { Restaurant, Order } from '../../types';
+import { safeParse } from '../../lib/utils';
 import { DollarSign, ShoppingBag, PawPrint, AlertTriangle, BarChart, Utensils } from 'lucide-react';
 
 const StatCard: React.FC<{ title: string; value: string; icon: React.ElementType }> = ({ title, value, icon: Icon }) => (
@@ -43,28 +45,18 @@ const DashboardPage: React.FC = () => {
             setOrders(ordersData);
             
             const itemCounts = new Map<string, number>();
-            const getParsedItems = (order: Order) => {
-                const itemsSource = order?.order_details || order?.items;
-                if (Array.isArray(itemsSource)) return itemsSource;
-                if (typeof itemsSource === 'string') {
-                    try {
-                        const parsed = JSON.parse(itemsSource);
-                        return Array.isArray(parsed) ? parsed : [];
-                    } catch (e) {
-                        return [];
-                    }
-                }
-                return [];
-            };
-
             ordersData.forEach(order => {
-              const items = getParsedItems(order);
+              // Standardized items parsing with fallback to empty array
+              const items = safeParse<any[]>(order.order_details || order.items, []);
+              
               items.forEach((item: any) => {
-                if (item?.name && typeof item?.quantity === 'number') {
-                    itemCounts.set(item.name, (itemCounts.get(item.name) || 0) + item.quantity);
+                if (item?.name) {
+                    const qty = Number(item?.quantity) || 1;
+                    itemCounts.set(item.name, (itemCounts.get(item.name) || 0) + qty);
                 }
               });
             });
+
             const sortedItems = Array.from(itemCounts.entries())
               .sort((a, b) => b[1] - a[1])
               .slice(0, 5)
@@ -96,17 +88,23 @@ const DashboardPage: React.FC = () => {
     );
   }
 
-  const deliveredOrders = orders.filter(o => o.status === 'delivered');
-  const totalRevenue = deliveredOrders.reduce((acc, order) => acc + Number(order.total_amount), 0);
+  // AUDIT FIX: Use Number() and handle potential nulls for accurate Revenue
+  // We count 'delivered' orders as actual revenue for financial reporting
+  const revenueOrders = orders.filter(o => o.status === 'delivered');
+  const totalRevenue = revenueOrders.reduce((acc, order) => {
+      const amount = Number(order.total_amount) || 0;
+      return acc + amount;
+  }, 0);
+  
   const totalOrders = orders.length;
-  const avgOrderValue = totalOrders > 0 ? totalRevenue / Math.max(deliveredOrders.length, 1) : 0;
+  const avgOrderValue = totalOrders > 0 ? totalRevenue / Math.max(revenueOrders.length, 1) : 0;
   const animalsFed = Math.floor(totalOrders * 0.05);
 
   return (
     <div>
       <h1 className="text-3xl font-bold mb-6 text-white">{restaurant.name} Overview</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Total Revenue" value={`₹${totalRevenue.toFixed(2)}`} icon={DollarSign} />
+        <StatCard title="Total Revenue" value={`₹${totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`} icon={DollarSign} />
         <StatCard title="Total Orders" value={totalOrders.toString()} icon={ShoppingBag} />
         <StatCard title="Avg. Order Value" value={`₹${avgOrderValue.toFixed(2)}`} icon={BarChart} />
         <StatCard title="Animals Fed (est.)" value={animalsFed.toString()} icon={PawPrint} />
