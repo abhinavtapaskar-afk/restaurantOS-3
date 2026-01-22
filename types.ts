@@ -42,8 +42,8 @@ export interface Order {
   customer_name?: string;
   customer_phone?: string;
   customer_address?: string;
-  customer_lat?: number;
-  customer_lng?: number;
+  latitude?: number;
+  longitude?: number;
   order_details?: CartItem[];
   total_amount: number;
   status: OrderStatus;

@@ -69,6 +69,7 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ 
     const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
     const [isLocating, setIsLocating] = useState(false);
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+    const isReadyToOrder = location !== null;
 
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -112,6 +113,11 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ 
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!isReadyToOrder) {
+            alert("Please detect your location for faster delivery!");
+            return;
+        }
+
         setIsPlacingOrder(true);
         try {
             const { data: restaurantData } = await supabase.from('restaurants').select('id').eq('slug', slug).single();
@@ -122,8 +128,8 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ 
                 customer_name: name,
                 customer_phone: phone,
                 customer_address: address,
-                customer_lat: location?.lat,
-                customer_lng: location?.lng,
+                latitude: location?.lat,
+                longitude: location?.lng,
                 total_amount: total,
                 order_details: cart,
                 status: 'pending' as const
@@ -175,15 +181,19 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ 
                 
                 <div className="space-y-2">
                     <div className="flex gap-2">
-                        <textarea placeholder="Delivery Address" value={address} onChange={e => setAddress(e.target.value)} required className="flex-1 bg-slate-800 p-2 rounded-md border border-slate-700" rows={2}/>
+                        <textarea placeholder="House No, Floor, Landmark (Optional)" value={address} onChange={e => setAddress(e.target.value)} className="flex-1 bg-slate-800 p-2 rounded-md border border-slate-700" rows={2}/>
                         <button type="button" onClick={detectLocation} disabled={isLocating} className={cn("px-4 rounded-md border border-slate-700 transition-colors flex items-center justify-center", location ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-slate-800 text-slate-400")}>
                             {isLocating ? <div className="animate-spin h-5 w-5 border-2 border-emerald-500 border-t-transparent rounded-full" /> : <Navigation size={20} />}
                         </button>
                     </div>
-                    {location && <p className="text-[10px] text-emerald-400 text-right">✓ Accurate location captured ({location.lat.toFixed(4)}, {location.lng.toFixed(4)})</p>}
+                    {location ? (
+                         <p className="text-xs text-emerald-400 text-right">✓ Accurate location captured!</p>
+                    ) : (
+                         <p className="text-xs text-amber-400 text-right">Click the button to detect location for faster delivery.</p>
+                    )}
                 </div>
 
-                <button type="submit" disabled={isPlacingOrder} className={`w-full bg-${themeColor}-600 text-white font-bold py-3 rounded-lg hover:bg-${themeColor}-500 disabled:bg-slate-700`}>{isPlacingOrder ? 'Placing Order...' : `Place Order (₹${total.toFixed(2)})`}</button>
+                <button type="submit" disabled={isPlacingOrder || !isReadyToOrder} className={`w-full bg-${themeColor}-600 text-white font-bold py-3 rounded-lg hover:bg-${themeColor}-500 disabled:bg-slate-700 disabled:cursor-not-allowed`}>{isPlacingOrder ? 'Placing Order...' : `Place Order (₹${total.toFixed(2)})`}</button>
             </form>
         </Modal>
     );
