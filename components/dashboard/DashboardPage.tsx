@@ -46,7 +46,6 @@ const DashboardPage: React.FC = () => {
             
             const itemCounts = new Map<string, number>();
             ordersData.forEach(order => {
-              // Standardized items parsing with fallback to empty array
               const items = safeParse<any[]>(order.order_details || order.items, []);
               
               items.forEach((item: any) => {
@@ -89,7 +88,6 @@ const DashboardPage: React.FC = () => {
   }
 
   // AUDIT FIX: Use Number() and handle potential nulls for accurate Revenue
-  // We count 'delivered' orders as actual revenue for financial reporting
   const revenueOrders = orders.filter(o => o.status === 'delivered');
   const totalRevenue = revenueOrders.reduce((acc, order) => {
       const amount = Number(order.total_amount) || 0;

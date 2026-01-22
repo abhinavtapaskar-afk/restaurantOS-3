@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
-import { Restaurant, MenuItem, Review, CartItem, PaymentMethod } from '../../types';
-import { Plus, Minus, ShoppingCart, X, Star, MapPin, Clock, Phone, Navigation, CreditCard, Banknote } from 'lucide-react';
+import { Restaurant, MenuItem, CartItem, PaymentMethod } from '../../types';
+import { Plus, Minus, ShoppingCart, X, MapPin, Clock, Phone, Navigation, CreditCard, Banknote, Bike } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import Modal from '../ui/Modal';
 
@@ -141,11 +141,11 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string, restaur
                 handleUPIPayment();
             }
             
-            clearCart();
-            onClose();
-
-            // AUDIT FIX: Hard Redirect to track the order successfully
+            // UX FIX: Save to LocalStorage for persistence
             if (data?.id) {
+                localStorage.setItem('last_order_id', data.id);
+                clearCart();
+                onClose();
                 window.location.hash = `#/order-success/${data.id}`;
             }
         } catch (err: any) {
@@ -197,7 +197,6 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string, restaur
                             <span className="text-xs font-bold">UPI / Online</span>
                         </button>
                     </div>
-                    {!restaurant?.upi_id && <p className="text-[10px] text-red-400 italic">Online payment is currently unavailable for this restaurant.</p>}
                 </div>
 
                 <button type="submit" disabled={isPlacingOrder || !isReadyToOrder} className={`w-full bg-${themeColor}-600 text-white font-bold py-3 rounded-lg hover:bg-${themeColor}-500 disabled:bg-slate-700 disabled:cursor-not-allowed flex items-center justify-center gap-2`}>
@@ -208,17 +207,6 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string, restaur
     );
 };
 
-const fontLinks: Record<string, string> = {
-    'Inter': "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
-    'Roboto Slab': "https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@400;700&display=swap",
-    'Lato': "https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap",
-};
-const fontClasses: Record<string, string> = {
-    'Inter': 'font-sans',
-    'Roboto Slab': 'font-roboto-slab',
-    'Lato': 'font-lato',
-};
-
 const PublicMenuPageContent: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -226,6 +214,7 @@ const PublicMenuPageContent: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isCartOpen, setIsCartOpen] = useState(false);
+    const [activeOrderId, setActiveOrderId] = useState<string | null>(localStorage.getItem('last_order_id'));
     const { addToCart, itemCount } = useCart();
 
     const fetchData = useCallback(async () => {
@@ -235,7 +224,6 @@ const PublicMenuPageContent: React.FC = () => {
             const { data: restaurantData, error: restaurantError } = await supabase.from('restaurants').select('*').eq('slug', slug).maybeSingle();
             if (restaurantError) throw restaurantError;
             if (!restaurantData) throw new Error("Restaurant not found.");
-
             setRestaurant(restaurantData);
             const { data: menuData } = await supabase.from('menu_items').select('*').eq('restaurant_id', restaurantData.id).eq('is_available', true).order('category');
             if(menuData) setMenuItems(menuData);
@@ -249,26 +237,35 @@ const PublicMenuPageContent: React.FC = () => {
 
     useEffect(() => { fetchData() }, [fetchData]);
     
+    // Check for active order regularly
     useEffect(() => {
-        if (restaurant?.font && fontLinks[restaurant.font]) {
-            const link = document.createElement('link');
-            link.href = fontLinks[restaurant.font];
-            link.rel = 'stylesheet';
-            document.head.appendChild(link);
-            return () => { document.head.removeChild(link); };
-        }
-    }, [restaurant?.font]);
+        const checkOrder = () => {
+            const id = localStorage.getItem('last_order_id');
+            if (id !== activeOrderId) setActiveOrderId(id);
+        };
+        const interval = setInterval(checkOrder, 2000);
+        return () => clearInterval(interval);
+    }, [activeOrderId]);
 
     if (loading) return <div className="text-center p-10 text-slate-400">Loading...</div>;
     if (error) return <div className="text-center p-10 text-red-400">{error}</div>;
     if (!restaurant) return null;
 
     const themeColor = restaurant.theme_color || 'emerald';
-    const fontClass = fontClasses[restaurant.font || 'Inter'] || 'font-sans';
     const groupedMenu = menuItems.reduce((acc, item) => { const cat = item.category || 'Other'; if (!acc[cat]) acc[cat] = []; acc[cat].push(item); return acc; }, {} as Record<string, MenuItem[]>);
 
     return (
-        <div className={cn("min-h-screen bg-slate-950 text-slate-300 pb-24", fontClass)}>
+        <div className={cn("min-h-screen bg-slate-950 text-slate-300 pb-24 font-sans")}>
+            {/* AUDIT UX: Track Active Order Banner */}
+            {activeOrderId && (
+                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] animate-bounce">
+                    <Link to={`/order-success/${activeOrderId}`} className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-full shadow-2xl font-bold hover:bg-emerald-500 transition-all border border-emerald-400/50">
+                        <Bike size={20} className="animate-pulse" />
+                        🚚 Track Active Order (#{activeOrderId.substring(0,6).toUpperCase()})
+                    </Link>
+                </div>
+            )}
+
             <header className="h-96 bg-cover bg-center relative" style={{ backgroundImage: `url(${restaurant.hero_image_url || '/placeholder-hero.jpg'})` }}>
                 <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-center p-4">
                     <h1 className="text-5xl md:text-7xl font-bold text-white">{restaurant.hero_title || restaurant.name}</h1>
@@ -304,40 +301,7 @@ const PublicMenuPageContent: React.FC = () => {
                         </div>
                     ))}
                 </section>
-
-                <section>
-                    <h2 className={`text-3xl font-bold text-${themeColor}-400 text-center mb-8`}>Location & Contact</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-center">
-                        <div className="bg-slate-900 p-6 rounded-lg border border-slate-800">
-                            <MapPin className={`mx-auto mb-3 h-8 w-8 text-${themeColor}-400`} />
-                            <h3 className="text-xl font-bold text-white">Address</h3>
-                            <p className="text-slate-400 mt-1">{restaurant.address || 'Not specified'}</p>
-                            {restaurant.google_maps_url && (
-                                <a href={restaurant.google_maps_url} target="_blank" rel="noopener noreferrer" className={`mt-4 inline-block bg-${themeColor}-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-${themeColor}-500 transition-colors`}>
-                                    Open in Map
-                                </a>
-                            )}
-                        </div>
-                        <div className="bg-slate-900 p-6 rounded-lg border border-slate-800">
-                            <Clock className={`mx-auto mb-3 h-8 w-8 text-${themeColor}-400`} />
-                            <h3 className="text-xl font-bold text-white">Opening Hours</h3>
-                            <p className="text-slate-400 mt-1 whitespace-pre-line">{restaurant.opening_hours || 'Not specified'}</p>
-                            {restaurant.phone_number && (
-                                 <a href={`tel:${restaurant.phone_number}`} className={`mt-4 inline-block bg-${themeColor}-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-${themeColor}-500 transition-colors`}>
-                                    Call Now
-                                </a>
-                            )}
-                        </div>
-                    </div>
-                </section>
             </main>
-
-            <footer className="text-center p-8 mt-8 border-t border-slate-800 text-slate-500 space-y-2">
-                <p className="text-lg font-bold text-slate-300">{restaurant.name}</p>
-                <p>{restaurant.address}</p>
-                <p>{restaurant.phone_number}</p>
-                <p className="whitespace-pre-line">{restaurant.opening_hours}</p>
-            </footer>
 
             <button onClick={() => setIsCartOpen(true)} className={`fixed bottom-6 right-6 bg-${themeColor}-600 text-white rounded-full p-4 shadow-lg hover:bg-${themeColor}-500 transition-transform hover:scale-110 z-50`}>
                 <ShoppingCart size={28} />

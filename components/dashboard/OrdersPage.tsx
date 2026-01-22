@@ -7,7 +7,7 @@ import { cn, safeParse } from '../../lib/utils';
 import Modal from '../ui/Modal';
 import { Eye, MapPin, Phone, Navigation, ShoppingCart, Banknote, CreditCard, ChevronDown } from 'lucide-react';
 
-// AUDIT FIX: Hardcoded status array for guaranteed availability
+// Hardcoded status array for guaranteed availability
 const STATUS_OPTIONS: { value: OrderStatus; label: string; color: string }[] = [
     { value: 'pending', label: 'Pending', color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' },
     { value: 'confirmed', label: 'Confirmed', color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
@@ -185,7 +185,6 @@ const OrdersPage: React.FC = () => {
     }, [restaurant, fetchOrders]);
 
     const updateStatus = async (id: string, status: OrderStatus) => {
-        // Optimistic Update for UI snappiness
         setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
         if (selectedOrder && selectedOrder.id === id) {
             setSelectedOrder({ ...selectedOrder, status });
