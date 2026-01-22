@@ -19,8 +19,8 @@ const getStatusClass = (status: OrderStatus) => {
 }
 
 const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void }> = ({ order, onClose }) => {
-    const mapsUrl = order.latitude && order.longitude 
-        ? `https://www.google.com/maps/search/?api=1&query=${order.latitude},${order.longitude}`
+    const mapsUrl = order.customer_lat && order.customer_lng 
+        ? `https://www.google.com/maps/search/?api=1&query=${order.customer_lat},${order.customer_lng}`
         : null;
 
     return (
@@ -57,7 +57,7 @@ const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void }> = ({ or
                                 className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-4 rounded-md transition-colors shadow-lg"
                             >
                                 <Navigation size={14} />
-                                Open in Google Maps
+                                Navigate to Customer
                             </a>
                         </div>
                     </div>
@@ -204,7 +204,7 @@ const OrdersPage: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-emerald-400">₹{order.total_amount}</td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        {order.latitude ? (
+                                        {order.customer_lat ? (
                                             <span className="text-emerald-500 flex items-center gap-1 text-xs font-bold">
                                                 <MapPin size={14} /> Smart Tracked
                                             </span>

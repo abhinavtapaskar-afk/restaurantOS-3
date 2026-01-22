@@ -128,8 +128,8 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string }> = ({ 
                 customer_name: name,
                 customer_phone: phone,
                 customer_address: address,
-                latitude: location?.lat,
-                longitude: location?.lng,
+                customer_lat: location?.lat,
+                customer_lng: location?.lng,
                 total_amount: total,
                 order_details: cart,
                 status: 'pending' as const

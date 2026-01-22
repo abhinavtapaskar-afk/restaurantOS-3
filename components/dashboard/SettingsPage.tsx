@@ -128,7 +128,7 @@ const SettingsPage: React.FC = () => {
                 slug: restaurant?.slug || (createSlug(formState.name) + '-' + Math.random().toString(36).substring(2, 8))
             };
 
-            const { error } = await supabase.from('restaurants').upsert(upsertData, { onConflict: 'owner_id' });
+            const { error } = await supabase.from('restaurants').upsert(upsertData, { onConflict: 'id' });
             
             if (error) throw error;
 
