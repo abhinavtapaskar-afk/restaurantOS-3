@@ -268,8 +268,12 @@ const PublicMenuPageContent: React.FC = () => {
 
             <header className="h-96 bg-cover bg-center relative" style={{ backgroundImage: `url(${restaurant.hero_image_url || '/placeholder-hero.jpg'})` }}>
                 <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-center p-4">
-                    <h1 className="text-5xl md:text-7xl font-bold text-white">{restaurant.hero_title || restaurant.name}</h1>
-                    <p className="text-lg text-slate-300 mt-2">{restaurant.hero_subtitle || restaurant.city}</p>
+                    {restaurant.hero_title && (
+                        <h1 className="text-5xl md:text-7xl font-bold text-white">{restaurant.hero_title}</h1>
+                    )}
+                    {restaurant.hero_subtitle && (
+                        <p className="text-lg text-slate-300 mt-2">{restaurant.hero_subtitle}</p>
+                    )}
                 </div>
             </header>
             
@@ -314,3 +318,4 @@ const PublicMenuPageContent: React.FC = () => {
 
 const PublicMenuPage: React.FC = () => ( <CartProvider><PublicMenuPageContent /></CartProvider> );
 export default PublicMenuPage;
+    
