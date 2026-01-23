@@ -127,14 +127,18 @@ const SettingsPage: React.FC = () => {
                 opening_hours: formState.opening_hours,
                 google_maps_url: formState.google_maps_url,
                 upi_id: formState.upi_id,
-                slug: restaurant?.slug || (formState.slug + '-' + Math.random().toString(36).substring(2, 8))
+                slug: formState.slug
             };
 
-            const { error } = await supabase.from('restaurants').upsert(upsertData, { onConflict: 'id' });
+            const { data, error } = await supabase.from('restaurants').upsert(upsertData, { onConflict: 'id' }).select().single();
             if (error) throw error;
 
             setMessage({ type: 'success', text: 'Settings saved successfully!' });
-            fetchRestaurant();
+            if (data) {
+                setRestaurant(data);
+            } else {
+                fetchRestaurant(); 
+            }
         } catch (err: any) {
             console.error('[SettingsPage] Error saving settings:', err);
             setMessage({ type: 'error', text: `Save failed: ${err.message}` });
@@ -166,8 +170,8 @@ const SettingsPage: React.FC = () => {
                         </div>
                          <div>
                             <label htmlFor="slug" className="block text-sm font-medium text-slate-300 mb-1">Public URL Slug</label>
-                            <Input type="text" id="slug" value={formState.slug} onChange={handleInputChange} disabled={!!restaurant} placeholder="auto-generated from name" />
-                            {restaurant && <p className="text-xs text-slate-500 mt-1">Slug cannot be changed after creation to preserve your URL.</p>}
+                            <Input type="text" id="slug" value={formState.slug} onChange={handleInputChange} required placeholder="your-restaurant-name" />
+                            <p className="text-xs text-slate-500 mt-1">This URL slug is always editable. Changing it will break existing links to your menu.</p>
                          </div>
                          <div>
                             <label htmlFor="upi_id" className="block text-sm font-medium text-slate-300 mb-1 flex items-center gap-2">
