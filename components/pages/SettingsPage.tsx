@@ -48,7 +48,7 @@ const SettingsPage: React.FC = () => {
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     const [formState, setFormState] = useState({
-        name: '', city: 'Nanded', subdomain: '', address: '', phone: '', about: '',
+        name: '', city: 'Nanded', slug: '', address: '', phone: '', about: '',
         theme_color: 'emerald', font: 'Inter', hero_title: '', hero_subtitle: '',
         opening_hours: '', google_maps_url: '', upi_id: ''
     });
@@ -58,11 +58,14 @@ const SettingsPage: React.FC = () => {
     
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { id, value } = e.target;
-        if (id === 'name') {
-            setFormState(prev => ({ ...prev, name: value, subdomain: createSlug(value) }));
-        } else {
-            setFormState(prev => ({ ...prev, [id]: value }));
-        }
+        setFormState(prev => {
+            const newState = { ...prev, [id]: value };
+            // If name changes for a *new* restaurant, update the slug suggestion.
+            if (id === 'name' && !restaurant) {
+                newState.slug = createSlug(value);
+            }
+            return newState;
+        });
     };
 
     const fetchRestaurant = useCallback(async () => {
@@ -74,7 +77,7 @@ const SettingsPage: React.FC = () => {
             if (data) {
                 setRestaurant(data);
                 setFormState({
-                    name: data.name || '', city: data.city || 'Nanded', subdomain: data.subdomain || '',
+                    name: data.name || '', city: data.city || 'Nanded', slug: data.slug || '',
                     address: data.address || '', phone: data.phone_number || '', about: data.about_us || '',
                     theme_color: data.theme_color || 'emerald', font: data.font || 'Inter',
                     hero_title: data.hero_title || '', hero_subtitle: data.hero_subtitle || '',
@@ -123,9 +126,8 @@ const SettingsPage: React.FC = () => {
                 hero_image_url,
                 opening_hours: formState.opening_hours,
                 google_maps_url: formState.google_maps_url,
-                subdomain: formState.subdomain,
                 upi_id: formState.upi_id,
-                slug: restaurant?.slug || (createSlug(formState.name) + '-' + Math.random().toString(36).substring(2, 8))
+                slug: restaurant?.slug || (formState.slug + '-' + Math.random().toString(36).substring(2, 8))
             };
 
             const { error } = await supabase.from('restaurants').upsert(upsertData, { onConflict: 'id' });
@@ -162,6 +164,11 @@ const SettingsPage: React.FC = () => {
                                 <Input type="text" id="city" value={formState.city} onChange={handleInputChange} required />
                             </div>
                         </div>
+                         <div>
+                            <label htmlFor="slug" className="block text-sm font-medium text-slate-300 mb-1">Public URL Slug</label>
+                            <Input type="text" id="slug" value={formState.slug} onChange={handleInputChange} disabled={!!restaurant} placeholder="auto-generated from name" />
+                            {restaurant && <p className="text-xs text-slate-500 mt-1">Slug cannot be changed after creation to preserve your URL.</p>}
+                         </div>
                          <div>
                             <label htmlFor="upi_id" className="block text-sm font-medium text-slate-300 mb-1 flex items-center gap-2">
                                 <CreditCard size={16} className="text-emerald-500" />

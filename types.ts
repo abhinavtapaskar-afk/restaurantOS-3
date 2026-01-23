@@ -5,7 +5,6 @@ export interface Restaurant {
   name: string;
   city: string;
   slug: string;
-  subdomain: string;
   created_at: string;
   theme_color?: string;
   font?: string;

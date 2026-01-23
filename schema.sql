@@ -6,7 +6,6 @@ CREATE TABLE IF NOT EXISTS restaurants (
   name TEXT NOT NULL,
   city TEXT DEFAULT 'Nanded',
   slug TEXT UNIQUE NOT NULL,
-  subdomain TEXT,
   theme_color TEXT DEFAULT 'emerald',
   font TEXT DEFAULT 'Inter',
   hero_image_url TEXT,
