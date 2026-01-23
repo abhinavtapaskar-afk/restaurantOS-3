@@ -318,4 +318,3 @@ const PublicMenuPageContent: React.FC = () => {
 
 const PublicMenuPage: React.FC = () => ( <CartProvider><PublicMenuPageContent /></CartProvider> );
 export default PublicMenuPage;
-    
