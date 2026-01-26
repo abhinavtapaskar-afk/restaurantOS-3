@@ -127,7 +127,7 @@ const SettingsPage: React.FC = () => {
                 opening_hours: formState.opening_hours,
                 google_maps_url: formState.google_maps_url,
                 upi_id: formState.upi_id,
-                slug: formState.slug
+                slug: formState.slug // SAVES EXACTLY WHAT IS IN INPUT
             };
 
             const { data, error } = await supabase.from('restaurants').upsert(upsertData, { onConflict: 'id' }).select().single();
@@ -170,8 +170,8 @@ const SettingsPage: React.FC = () => {
                         </div>
                          <div>
                             <label htmlFor="slug" className="block text-sm font-medium text-slate-300 mb-1">Public URL Slug</label>
-                            <Input type="text" id="slug" value={formState.slug} onChange={handleInputChange} required placeholder="your-restaurant-name" />
-                            <p className="text-xs text-slate-500 mt-1">This URL slug is always editable. Changing it will break existing links to your menu.</p>
+                            <Input type="text" id="slug" value={formState.slug} onChange={handleInputChange} required placeholder="your-restaurant-slug" />
+                            <p className="text-xs text-slate-500 mt-1">This URL slug is always editable. Changing it will update your public menu address.</p>
                          </div>
                          <div>
                             <label htmlFor="upi_id" className="block text-sm font-medium text-slate-300 mb-1 flex items-center gap-2">
