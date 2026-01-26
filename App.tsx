@@ -1,6 +1,5 @@
 
 import React from 'react';
-// Correctly import named exports for React Router v6
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
 import LandingPage from './components/pages/LandingPage';

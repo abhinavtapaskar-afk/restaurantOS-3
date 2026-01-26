@@ -141,7 +141,6 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string, restaur
                 handleUPIPayment();
             }
             
-            // UX FIX: Save to LocalStorage for persistence
             if (data?.id) {
                 localStorage.setItem('last_order_id', data.id);
                 clearCart();
@@ -237,7 +236,6 @@ const PublicMenuPageContent: React.FC = () => {
 
     useEffect(() => { fetchData() }, [fetchData]);
     
-    // Check for active order regularly
     useEffect(() => {
         const checkOrder = () => {
             const id = localStorage.getItem('last_order_id');
@@ -256,7 +254,6 @@ const PublicMenuPageContent: React.FC = () => {
 
     return (
         <div className={cn("min-h-screen bg-slate-950 text-slate-300 pb-24 font-sans")}>
-            {/* AUDIT UX: Track Active Order Banner */}
             {activeOrderId && (
                 <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] animate-bounce">
                     <Link to={`/order-success/${activeOrderId}`} className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-full shadow-2xl font-bold hover:bg-emerald-500 transition-all border border-emerald-400/50">
@@ -267,15 +264,15 @@ const PublicMenuPageContent: React.FC = () => {
             )}
 
             <header className="h-96 bg-cover bg-center relative" style={{ backgroundImage: `url(${restaurant.hero_image_url || '/placeholder-hero.jpg'})` }}>
-                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-center p-4">
-                    {/* ONLY show title if it exists. No fallbacks. */}
-                    {restaurant.hero_title && restaurant.hero_title.trim() !== '' && (
+                {/* 100% CLEAN HERO Logic: Hide overlay if hero_title is empty */}
+                {restaurant.hero_title && restaurant.hero_title.trim() !== '' && (
+                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-center p-4">
                         <h1 className="text-5xl md:text-7xl font-bold text-white">{restaurant.hero_title}</h1>
-                    )}
-                    {restaurant.hero_subtitle && restaurant.hero_subtitle.trim() !== '' && (
-                        <p className="text-lg text-slate-300 mt-2">{restaurant.hero_subtitle}</p>
-                    )}
-                </div>
+                        {restaurant.hero_subtitle && (
+                            <p className="text-lg text-slate-300 mt-2">{restaurant.hero_subtitle}</p>
+                        )}
+                    </div>
+                )}
             </header>
             
             <main className="max-w-5xl mx-auto p-4 sm:p-6 md:p-8 space-y-16">

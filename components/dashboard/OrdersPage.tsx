@@ -7,7 +7,6 @@ import { cn, safeParse } from '../../lib/utils';
 import Modal from '../ui/Modal';
 import { Eye, MapPin, Phone, Navigation, ShoppingCart, Banknote, CreditCard, ChevronDown } from 'lucide-react';
 
-// Hardcoded status array for guaranteed availability
 const STATUS_OPTIONS: { value: OrderStatus; label: string; color: string }[] = [
     { value: 'pending', label: 'Pending', color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' },
     { value: 'confirmed', label: 'Confirmed', color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
@@ -26,7 +25,7 @@ const StatusDropdown: React.FC<{ status: OrderStatus, onUpdate: (status: OrderSt
     return (
         <div className="relative">
             <button 
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
                 className={cn("px-3 py-1 inline-flex items-center gap-2 text-[10px] uppercase font-bold rounded-full border transition-all", config.color)}
             >
                 {config.label}
@@ -39,7 +38,8 @@ const StatusDropdown: React.FC<{ status: OrderStatus, onUpdate: (status: OrderSt
                         {STATUS_OPTIONS.map((opt) => (
                             <button
                                 key={opt.value}
-                                onClick={() => {
+                                onClick={(e) => {
+                                    e.stopPropagation();
                                     onUpdate(opt.value);
                                     setIsOpen(false);
                                 }}
@@ -184,7 +184,8 @@ const OrdersPage: React.FC = () => {
         return () => { supabase.removeChannel(channel); }
     }, [restaurant, fetchOrders]);
 
-    const updateStatus = async (id: string, status: OrderStatus) => {
+    const handleStatusUpdate = async (id: string, status: OrderStatus) => {
+        // Optimistic UI update
         setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
         if (selectedOrder && selectedOrder.id === id) {
             setSelectedOrder({ ...selectedOrder, status });
@@ -195,6 +196,7 @@ const OrdersPage: React.FC = () => {
             if (error) throw error;
         } catch (err) {
             console.error('[OrdersPage] Status update failed:', err);
+            // Revert on error
             fetchOrders(restaurant?.id || '');
         }
     };
@@ -246,7 +248,7 @@ const OrdersPage: React.FC = () => {
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <StatusDropdown 
                                             status={order.status} 
-                                            onUpdate={(newStatus) => updateStatus(order.id, newStatus)} 
+                                            onUpdate={(newStatus) => handleStatusUpdate(order.id, newStatus)} 
                                         />
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-right">
@@ -270,7 +272,7 @@ const OrdersPage: React.FC = () => {
                 <OrderDetailsModal 
                     order={selectedOrder} 
                     onClose={() => setSelectedOrder(null)} 
-                    onStatusUpdate={(newStatus) => updateStatus(selectedOrder.id, newStatus)}
+                    onStatusUpdate={(newStatus) => handleStatusUpdate(selectedOrder.id, newStatus)}
                 />
             )}
         </div>

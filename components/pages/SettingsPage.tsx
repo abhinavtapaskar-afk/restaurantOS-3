@@ -60,7 +60,7 @@ const SettingsPage: React.FC = () => {
         const { id, value } = e.target;
         setFormState(prev => {
             const newState = { ...prev, [id]: value };
-            // If name changes for a *new* restaurant, update the slug suggestion.
+            // Auto-generate slug from name only if it's a new restaurant and slug hasn't been manually touched
             if (id === 'name' && !restaurant) {
                 newState.slug = createSlug(value);
             }
@@ -112,7 +112,7 @@ const SettingsPage: React.FC = () => {
             }
 
             const upsertData = {
-                id: restaurant?.id, // Supabase handles undefined as new insert
+                id: restaurant?.id, 
                 owner_id: user.id,
                 name: formState.name,
                 city: formState.city,
@@ -127,18 +127,14 @@ const SettingsPage: React.FC = () => {
                 opening_hours: formState.opening_hours,
                 google_maps_url: formState.google_maps_url,
                 upi_id: formState.upi_id,
-                slug: formState.slug // SAVES EXACTLY WHAT IS IN INPUT
+                slug: formState.slug // Save exactly what is in the form
             };
 
             const { data, error } = await supabase.from('restaurants').upsert(upsertData, { onConflict: 'id' }).select().single();
             if (error) throw error;
 
             setMessage({ type: 'success', text: 'Settings saved successfully!' });
-            if (data) {
-                setRestaurant(data);
-            } else {
-                fetchRestaurant(); 
-            }
+            if (data) setRestaurant(data);
         } catch (err: any) {
             console.error('[SettingsPage] Error saving settings:', err);
             setMessage({ type: 'error', text: `Save failed: ${err.message}` });
@@ -171,7 +167,7 @@ const SettingsPage: React.FC = () => {
                          <div>
                             <label htmlFor="slug" className="block text-sm font-medium text-slate-300 mb-1">Public URL Slug</label>
                             <Input type="text" id="slug" value={formState.slug} onChange={handleInputChange} required placeholder="your-restaurant-slug" />
-                            <p className="text-xs text-slate-500 mt-1">This URL slug is always editable. Changing it will update your public menu address.</p>
+                            <p className="text-xs text-slate-500 mt-1">This URL slug is always editable. Changing it will update your public menu address immediately.</p>
                          </div>
                          <div>
                             <label htmlFor="upi_id" className="block text-sm font-medium text-slate-300 mb-1 flex items-center gap-2">
@@ -206,7 +202,7 @@ const SettingsPage: React.FC = () => {
                          <div>
                             <label className="block text-sm font-medium text-slate-300 mb-1">Hero Image</label>
                             {restaurant?.hero_image_url && !heroImageFile && <img src={restaurant.hero_image_url} alt="Hero" className="w-48 h-24 object-cover rounded-md mb-2" />}
-                            <input type="file" onChange={e => e.target.files && setHeroImageFile(e.target.files[0])} accept="image/*" className="mt-1 block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-500/10 file:text-emerald-500 hover:file:bg-emerald-500/20"/>
+                            <input type="file" onChange={e => e.target.files && setHeroImageFile(e.target.files[0])} accept="image/*" className="mt-1 block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-500/10 file:text-emerald-500 hover:file:bg-emerald-500/20 transition-colors"/>
                         </div>
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
