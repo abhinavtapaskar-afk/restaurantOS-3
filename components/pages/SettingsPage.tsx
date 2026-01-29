@@ -1,16 +1,14 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { Restaurant } from '../../types';
 import { cn } from '../../lib/utils';
 import { 
     Check, 
-    CreditCard, 
     Smartphone, 
     Layout, 
     Palette, 
-    Type, 
     Globe, 
     Instagram, 
     MessageCircle, 
@@ -18,11 +16,9 @@ import {
     MapPin, 
     Image as ImageIcon,
     Save,
-    Power,
     RefreshCw
 } from 'lucide-react';
 
-// Exporting fonts so they can be used in other components like PublicMenuPage
 export const fonts = [
     { name: 'Poppins', category: 'Modern', family: "'Poppins', sans-serif" },
     { name: 'Montserrat', category: 'Modern', family: "'Montserrat', sans-serif" },
@@ -41,7 +37,7 @@ const SettingsPage: React.FC = () => {
 
     const [formState, setFormState] = useState({
         name: '', city: 'Nanded', slug: '', address: '', phone: '', about: '',
-        theme_color: '#10b981', secondary_color: '#059669', font: 'Poppins',
+        theme_color: '#10b981', secondary_theme_color: '#059669', font: 'Poppins',
         hero_title: '', hero_subtitle: '', hero_opacity: 60,
         opening_hours: '', google_maps_url: '', upi_id: '',
         whatsapp_number: '', instagram_url: '', is_accepting_orders: true
@@ -91,7 +87,7 @@ const SettingsPage: React.FC = () => {
                     name: data.name || '', city: data.city || 'Nanded', slug: data.slug || '',
                     address: data.address || '', phone: data.phone_number || '', about: data.about_us || '',
                     theme_color: data.theme_color || '#10b981', 
-                    secondary_color: data.secondary_color || '#059669',
+                    secondary_theme_color: data.secondary_theme_color || '#059669',
                     font: data.font || 'Poppins',
                     hero_title: data.hero_title || '', 
                     hero_subtitle: data.hero_subtitle || '', 
@@ -139,7 +135,7 @@ const SettingsPage: React.FC = () => {
                 instagram_url: formState.instagram_url,
                 about_us: formState.about,
                 theme_color: formState.theme_color,
-                secondary_color: formState.secondary_color,
+                secondary_theme_color: formState.secondary_theme_color,
                 font: formState.font,
                 hero_title: formState.hero_title,
                 hero_subtitle: formState.hero_subtitle,
@@ -158,6 +154,7 @@ const SettingsPage: React.FC = () => {
             setMessage({ type: 'success', text: 'Studio changes published!' });
             fetchRestaurant();
         } catch (err: any) {
+            console.error('[SettingsPage] Save Error:', err);
             setMessage({ type: 'error', text: `Publication failed: ${err.message}` });
         } finally {
             setSaving(false);
@@ -226,8 +223,8 @@ const SettingsPage: React.FC = () => {
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Secondary Blend Color</label>
                                     <div className="flex items-center gap-3">
-                                        <input type="color" id="secondary_color" value={formState.secondary_color} onChange={handleInputChange} className="w-12 h-12 rounded-lg cursor-pointer bg-transparent border-none" />
-                                        <input type="text" value={formState.secondary_color} onChange={handleInputChange} id="secondary_color" className="bg-slate-950/50 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-slate-300 font-mono w-24" />
+                                        <input type="color" id="secondary_theme_color" value={formState.secondary_theme_color} onChange={handleInputChange} className="w-12 h-12 rounded-lg cursor-pointer bg-transparent border-none" />
+                                        <input type="text" value={formState.secondary_theme_color} onChange={handleInputChange} id="secondary_theme_color" className="bg-slate-950/50 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-slate-300 font-mono w-24" />
                                     </div>
                                 </div>
                             </div>
@@ -373,7 +370,7 @@ const SettingsPage: React.FC = () => {
                                                 <div className="h-2 w-12 bg-slate-800 rounded-full"></div>
                                                 <div className="flex justify-between items-center pt-2">
                                                     <span className="text-[10px] font-bold" style={{ color: formState.theme_color }}>₹299</span>
-                                                    <div className="w-6 h-6 rounded-full" style={{ background: `linear-gradient(45deg, ${formState.theme_color}, ${formState.secondary_color})` }}></div>
+                                                    <div className="w-6 h-6 rounded-full" style={{ background: `linear-gradient(45deg, ${formState.theme_color}, ${formState.secondary_theme_color})` }}></div>
                                                 </div>
                                             </div>
                                         </div>
@@ -386,7 +383,7 @@ const SettingsPage: React.FC = () => {
                                 <div 
                                     className="w-full py-2.5 rounded-full text-white text-[10px] font-black uppercase text-center shadow-lg"
                                     style={{ 
-                                        background: `linear-gradient(45deg, ${formState.theme_color}, ${formState.secondary_color})`,
+                                        background: `linear-gradient(45deg, ${formState.theme_color}, ${formState.secondary_theme_color})`,
                                         opacity: formState.is_accepting_orders ? 1 : 0.5
                                     }}
                                 >

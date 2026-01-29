@@ -7,7 +7,7 @@ export interface Restaurant {
   slug: string;
   created_at: string;
   theme_color?: string;
-  secondary_color?: string;
+  secondary_theme_color?: string;
   font?: string;
   hero_image_url?: string;
   hero_title?: string;

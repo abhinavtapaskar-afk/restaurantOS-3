@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, createContext, useContext } fr
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
 import { Restaurant, MenuItem, CartItem, PaymentMethod } from '../../types';
-import { Plus, Minus, ShoppingCart, X, MapPin, Clock, Phone, Navigation, CreditCard, Banknote, Bike, Instagram, MessageCircle, Utensils } from 'lucide-react';
+import { Plus, Minus, ShoppingCart, X, MapPin, Phone, Navigation, CreditCard, Banknote, Bike, Instagram, MessageCircle, Utensils } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import Modal from '../ui/Modal';
 import { fonts } from './SettingsPage';
@@ -197,7 +197,7 @@ const CheckoutModal: React.FC<{ onClose: () => void, primaryColor: string, secon
                             type="button" 
                             disabled={!restaurant?.upi_id}
                             onClick={() => setPaymentMethod('UPI')}
-                            className={cn("flex flex-col items-center gap-2 p-3 rounded-xl border transition-all", paymentMethod === 'UPI' ? "border-emerald-500 bg-emerald-500/10 text-white" : "border-slate-700 bg-slate-800 text-slate-400", !restaurant?.upi_id && "opacity-50 cursor-not-allowed")}
+                            className={cn("flex flex-col items-center gap-2 p-3 rounded-xl border transition-all", paymentMethod === 'UPI' ? "border-emerald-500 bg-emerald-500/10 text-white" : "border-slate-700 bg-slate-800 text-slate-400", !restaurant?.upi_id && "opacity-50 custom-not-allowed")}
                         >
                             <CreditCard size={24} />
                             <span className="text-[10px] font-black uppercase tracking-widest">UPI Pay</span>
@@ -262,7 +262,7 @@ const PublicMenuPageContent: React.FC = () => {
     if (!restaurant) return null;
 
     const primaryColor = restaurant.theme_color || '#10b981';
-    const secondaryColor = restaurant.secondary_color || '#059669';
+    const secondaryColor = restaurant.secondary_theme_color || '#059669';
     const heroOpacity = (restaurant.hero_opacity ?? 60) / 100;
     const fontConfig = fonts.find(f => f.name === restaurant.font) || fonts[0];
 

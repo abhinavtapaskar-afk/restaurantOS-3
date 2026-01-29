@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-// Added missing Link import
 import { Link } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
@@ -167,7 +166,6 @@ const DashboardPage: React.FC = () => {
             items.forEach(item => {
                 const cat = item.category || 'Other';
                 const qty = Number(item.quantity) || 1;
-                // Corrected map update logic: use .get() instead of .set() inside the value expression
                 categoryStats.set(cat, (categoryStats.get(cat) || 0) + qty);
             });
         });
