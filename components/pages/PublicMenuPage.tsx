@@ -3,9 +3,10 @@ import React, { useState, useEffect, useCallback, createContext, useContext } fr
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
 import { Restaurant, MenuItem, CartItem, PaymentMethod } from '../../types';
-import { Plus, Minus, ShoppingCart, X, MapPin, Clock, Phone, Navigation, CreditCard, Banknote, Bike } from 'lucide-react';
+import { Plus, Minus, ShoppingCart, X, MapPin, Clock, Phone, Navigation, CreditCard, Banknote, Bike, Instagram, MessageCircle, Utensils } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import Modal from '../ui/Modal';
+import { fonts } from './SettingsPage';
 
 interface CartContextType { cart: CartItem[]; addToCart: (item: MenuItem) => void; removeFromCart: (itemId: string) => void; updateQuantity: (itemId: string, quantity: number) => void; clearCart: () => void; total: number; itemCount: number; }
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -21,7 +22,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return (<CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQuantity, clearCart, total, itemCount }}>{children}</CartContext.Provider>);
 };
 
-const CartSidebar: React.FC<{ isOpen: boolean, onClose: () => void, themeColor: string, restaurant: Restaurant | null }> = ({ isOpen, onClose, themeColor, restaurant }) => {
+const CartSidebar: React.FC<{ isOpen: boolean, onClose: () => void, primaryColor: string, secondaryColor: string, restaurant: Restaurant | null }> = ({ isOpen, onClose, primaryColor, secondaryColor, restaurant }) => {
     const { cart, updateQuantity, total, itemCount } = useCart();
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
     return (<>
@@ -38,27 +39,33 @@ const CartSidebar: React.FC<{ isOpen: boolean, onClose: () => void, themeColor: 
                             <img src={item.image_url} alt={item.name} className="w-16 h-16 rounded-md object-cover" />
                             <div className="flex-1">
                                 <p className="font-semibold text-white">{item.name}</p>
-                                <p className={`text-${themeColor}-400`}>₹{item.price.toFixed(2)}</p>
+                                <p style={{ color: primaryColor }}>₹{item.price.toFixed(2)}</p>
                             </div>
                             <div className="flex items-center gap-2">
-                                <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="p-1 bg-slate-800 rounded-full"><Minus size={14} /></button>
-                                <span>{item.quantity}</span>
-                                <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="p-1 bg-slate-800 rounded-full"><Plus size={14} /></button>
+                                <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="p-1 bg-slate-800 rounded-full text-white"><Minus size={14} /></button>
+                                <span className="text-white">{item.quantity}</span>
+                                <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="p-1 bg-slate-800 rounded-full text-white"><Plus size={14} /></button>
                             </div>
                         </div>
                     ))}
                 </div>
                 <div className="p-4 border-t border-slate-800 space-y-4">
-                    <div className="flex justify-between font-bold text-lg"><span>Total</span><span>₹{total.toFixed(2)}</span></div>
-                    <button onClick={() => setIsCheckoutOpen(true)} className={`w-full bg-${themeColor}-600 text-white font-bold py-3 rounded-lg hover:bg-${themeColor}-500 transition-colors`}>Proceed to Checkout</button>
+                    <div className="flex justify-between font-bold text-lg text-white"><span>Total</span><span>₹{total.toFixed(2)}</span></div>
+                    <button 
+                        onClick={() => setIsCheckoutOpen(true)} 
+                        style={{ background: `linear-gradient(45deg, ${primaryColor}, ${secondaryColor})` }}
+                        className="w-full text-white font-bold py-3 rounded-lg shadow-lg"
+                    >
+                        Proceed to Checkout
+                    </button>
                 </div></>) : (<div className="flex-1 flex flex-col items-center justify-center text-slate-500"><ShoppingCart size={48} /><p className="mt-4">Your cart is empty</p></div>)}
             </div>
         </div>
-        {isCheckoutOpen && <CheckoutModal onClose={() => setIsCheckoutOpen(false)} themeColor={themeColor} restaurant={restaurant} />}
+        {isCheckoutOpen && <CheckoutModal onClose={() => setIsCheckoutOpen(false)} primaryColor={primaryColor} secondaryColor={secondaryColor} restaurant={restaurant} />}
     </>);
 };
 
-const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string, restaurant: Restaurant | null }> = ({ onClose, themeColor, restaurant }) => {
+const CheckoutModal: React.FC<{ onClose: () => void, primaryColor: string, secondaryColor: string, restaurant: Restaurant | null }> = ({ onClose, primaryColor, secondaryColor, restaurant }) => {
     const { cart, total, clearCart } = useCart();
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
@@ -158,48 +165,53 @@ const CheckoutModal: React.FC<{ onClose: () => void, themeColor: string, restaur
     return (
         <Modal isOpen={true} onClose={onClose} title="Complete Your Order">
             <form onSubmit={handleSubmit} className="space-y-4">
-                <input type="text" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} required className="w-full bg-slate-800 p-2 rounded-md border border-slate-700"/>
-                <input type="tel" placeholder="Phone Number" value={phone} onChange={e => setPhone(e.target.value)} required className="w-full bg-slate-800 p-2 rounded-md border border-slate-700"/>
+                <input type="text" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} required className="w-full bg-slate-800 p-2 rounded-md border border-slate-700 text-white outline-none focus:border-emerald-500"/>
+                <input type="tel" placeholder="Phone Number" value={phone} onChange={e => setPhone(e.target.value)} required className="w-full bg-slate-800 p-2 rounded-md border border-slate-700 text-white outline-none focus:border-emerald-500"/>
                 
                 <div className="space-y-2">
                     <div className="flex gap-2">
-                        <textarea placeholder="House No, Floor, Landmark (Optional)" value={address} onChange={e => setAddress(e.target.value)} className="flex-1 bg-slate-800 p-2 rounded-md border border-slate-700" rows={2}/>
+                        <textarea placeholder="House No, Floor, Landmark (Optional)" value={address} onChange={e => setAddress(e.target.value)} className="flex-1 bg-slate-800 p-2 rounded-md border border-slate-700 text-white outline-none focus:border-emerald-500" rows={2}/>
                         <button type="button" onClick={detectLocation} disabled={isLocating} className={cn("px-4 rounded-md border border-slate-700 transition-colors flex items-center justify-center", location ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-slate-800 text-slate-400")}>
                             {isLocating ? <div className="animate-spin h-5 w-5 border-2 border-emerald-500 border-t-transparent rounded-full" /> : <Navigation size={20} />}
                         </button>
                     </div>
                     {location ? (
-                         <p className="text-xs text-emerald-400 text-right">✓ Accurate location captured!</p>
+                         <p className="text-xs text-emerald-400 text-right font-bold uppercase tracking-wider">✓ Precise Location Set</p>
                     ) : (
-                         <p className="text-xs text-amber-400 text-right">Detect location for faster delivery.</p>
+                         <p className="text-xs text-amber-400 text-right italic">Required for delivery dispatch.</p>
                     )}
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Payment Method</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Payment Strategy</label>
                     <div className="grid grid-cols-2 gap-3">
                         <button 
                             type="button" 
                             onClick={() => setPaymentMethod('COD')}
-                            className={cn("flex flex-col items-center gap-2 p-3 rounded-lg border transition-all", paymentMethod === 'COD' ? `border-${themeColor}-500 bg-${themeColor}-500/10 text-white` : "border-slate-700 bg-slate-800 text-slate-400")}
+                            className={cn("flex flex-col items-center gap-2 p-3 rounded-xl border transition-all", paymentMethod === 'COD' ? "border-emerald-500 bg-emerald-500/10 text-white" : "border-slate-700 bg-slate-800 text-slate-400")}
                         >
                             <Banknote size={24} />
-                            <span className="text-xs font-bold">Cash</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest">Cash</span>
                         </button>
                         <button 
                             type="button" 
                             disabled={!restaurant?.upi_id}
                             onClick={() => setPaymentMethod('UPI')}
-                            className={cn("flex flex-col items-center gap-2 p-3 rounded-lg border transition-all", paymentMethod === 'UPI' ? `border-${themeColor}-500 bg-${themeColor}-500/10 text-white` : "border-slate-700 bg-slate-800 text-slate-400", !restaurant?.upi_id && "opacity-50 cursor-not-allowed")}
+                            className={cn("flex flex-col items-center gap-2 p-3 rounded-xl border transition-all", paymentMethod === 'UPI' ? "border-emerald-500 bg-emerald-500/10 text-white" : "border-slate-700 bg-slate-800 text-slate-400", !restaurant?.upi_id && "opacity-50 cursor-not-allowed")}
                         >
                             <CreditCard size={24} />
-                            <span className="text-xs font-bold">UPI / Online</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest">UPI Pay</span>
                         </button>
                     </div>
                 </div>
 
-                <button type="submit" disabled={isPlacingOrder || !isReadyToOrder} className={`w-full bg-${themeColor}-600 text-white font-bold py-3 rounded-lg hover:bg-${themeColor}-500 disabled:bg-slate-700 disabled:cursor-not-allowed flex items-center justify-center gap-2`}>
-                    {isPlacingOrder ? 'Placing Order...' : (paymentMethod === 'UPI' ? `Pay & Order (₹${total.toFixed(2)})` : `Place Order (₹${total.toFixed(2)})`)}
+                <button 
+                    type="submit" 
+                    disabled={isPlacingOrder || !isReadyToOrder} 
+                    style={{ background: isReadyToOrder ? `linear-gradient(45deg, ${primaryColor}, ${secondaryColor})` : '#334155' }}
+                    className="w-full text-white font-black uppercase tracking-widest py-4 rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                    {isPlacingOrder ? 'Confirming...' : (paymentMethod === 'UPI' ? `Pay & Order ₹${total.toFixed(2)}` : `Place Order ₹${total.toFixed(2)}`)}
                 </button>
             </form>
         </Modal>
@@ -217,17 +229,17 @@ const PublicMenuPageContent: React.FC = () => {
     const { addToCart, itemCount } = useCart();
 
     const fetchData = useCallback(async () => {
-        if (!slug) { setError("Restaurant not specified."); setLoading(false); return; }
+        if (!slug) { setError("Restaurant slug is missing."); setLoading(false); return; }
         setLoading(true);
         try {
             const { data: restaurantData, error: restaurantError } = await supabase.from('restaurants').select('*').eq('slug', slug).maybeSingle();
             if (restaurantError) throw restaurantError;
-            if (!restaurantData) throw new Error("Restaurant not found.");
+            if (!restaurantData) throw new Error("Storefront not found.");
             setRestaurant(restaurantData);
             const { data: menuData } = await supabase.from('menu_items').select('*').eq('restaurant_id', restaurantData.id).eq('is_available', true).order('category');
             if(menuData) setMenuItems(menuData);
         } catch (err: any) {
-            console.error('[PublicMenu] Error fetching data:', err);
+            console.error('[PublicMenu] Load Error:', err);
             setError(err.message);
         } finally {
             setLoading(false);
@@ -245,57 +257,112 @@ const PublicMenuPageContent: React.FC = () => {
         return () => clearInterval(interval);
     }, [activeOrderId]);
 
-    if (loading) return <div className="text-center p-10 text-slate-400">Loading...</div>;
-    if (error) return <div className="text-center p-10 text-red-400">{error}</div>;
+    if (loading) return <div className="text-center p-20 text-slate-500 font-black uppercase tracking-widest animate-pulse">Designing your menu...</div>;
+    if (error) return <div className="text-center p-20 text-red-500 font-bold uppercase">Store Error: {error}</div>;
     if (!restaurant) return null;
 
-    const themeColor = restaurant.theme_color || 'emerald';
-    const groupedMenu = menuItems.reduce((acc, item) => { const cat = item.category || 'Other'; if (!acc[cat]) acc[cat] = []; acc[cat].push(item); return acc; }, {} as Record<string, MenuItem[]>);
+    const primaryColor = restaurant.theme_color || '#10b981';
+    const secondaryColor = restaurant.secondary_color || '#059669';
+    const heroOpacity = (restaurant.hero_opacity ?? 60) / 100;
+    const fontConfig = fonts.find(f => f.name === restaurant.font) || fonts[0];
+
+    const groupedMenu = menuItems.reduce((acc, item) => { 
+        const cat = item.category || 'Specialties'; 
+        if (!acc[cat]) acc[cat] = []; 
+        acc[cat].push(item); 
+        return acc; 
+    }, {} as Record<string, MenuItem[]>);
 
     return (
-        <div className={cn("min-h-screen bg-slate-950 text-slate-300 pb-24 font-sans")}>
+        <div className="min-h-screen bg-slate-950 text-slate-300 pb-32" style={{ fontFamily: fontConfig.family }}>
             {activeOrderId && (
-                <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] animate-bounce">
-                    <Link to={`/order-success/${activeOrderId}`} className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-full shadow-2xl font-bold hover:bg-emerald-500 transition-all border border-emerald-400/50">
-                        <Bike size={20} className="animate-pulse" />
-                        🚚 Track Active Order (#{activeOrderId.substring(0,6).toUpperCase()})
+                <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[60] animate-bounce">
+                    <Link to={`/order-success/${activeOrderId}`} className="flex items-center gap-3 bg-white text-slate-950 px-6 py-3 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.5)] font-black uppercase text-xs tracking-widest hover:scale-105 transition-all">
+                        <Bike size={20} className="text-emerald-500" />
+                        Track My Active Order
                     </Link>
                 </div>
             )}
 
-            <header className="h-96 bg-cover bg-center relative" style={{ backgroundImage: `url(${restaurant.hero_image_url || '/placeholder-hero.jpg'})` }}>
-                {/* 100% CLEAN HERO Logic: Hide overlay if hero_title is empty */}
-                {restaurant.hero_title && restaurant.hero_title.trim() !== '' && (
-                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-center p-4">
-                        <h1 className="text-5xl md:text-7xl font-bold text-white">{restaurant.hero_title}</h1>
-                        {restaurant.hero_subtitle && (
-                            <p className="text-lg text-slate-300 mt-2">{restaurant.hero_subtitle}</p>
+            <header className="h-[50vh] bg-cover bg-center relative" style={{ backgroundImage: `url(${restaurant.hero_image_url || 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?q=80&w=2070&auto=format&fit=crop'})` }}>
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6" style={{ backgroundColor: `rgba(0,0,0,${heroOpacity})` }}>
+                    {restaurant.hero_title && (
+                        <h1 className="text-5xl md:text-8xl font-black text-white tracking-tighter drop-shadow-2xl">{restaurant.hero_title}</h1>
+                    )}
+                    {restaurant.hero_subtitle && (
+                        <p className="text-lg md:text-2xl text-white/80 mt-4 max-w-2xl font-medium">{restaurant.hero_subtitle}</p>
+                    )}
+                    
+                    {/* Socials integration */}
+                    <div className="flex gap-4 mt-8">
+                        {restaurant.instagram_url && (
+                            <a href={restaurant.instagram_url} target="_blank" className="p-3 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-all border border-white/10"><Instagram size={20}/></a>
+                        )}
+                        {restaurant.whatsapp_number && (
+                            <a href={`https://wa.me/${restaurant.whatsapp_number}`} target="_blank" className="p-3 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-all border border-white/10"><MessageCircle size={20}/></a>
+                        )}
+                        {restaurant.google_maps_url && (
+                            <a href={restaurant.google_maps_url} target="_blank" className="p-3 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-all border border-white/10"><MapPin size={20}/></a>
                         )}
                     </div>
-                )}
+                </div>
             </header>
             
-            <main className="max-w-5xl mx-auto p-4 sm:p-6 md:p-8 space-y-16">
+            <main className="max-w-6xl mx-auto p-4 md:p-12 space-y-24">
                 {restaurant.about_us && (
-                    <section className="bg-slate-900 p-8 rounded-lg -mt-32 relative z-10 border border-slate-800 shadow-xl">
-                        <h2 className={`text-3xl font-bold text-${themeColor}-400 mb-4`}>About Us</h2>
-                        <p className="text-slate-400 whitespace-pre-wrap">{restaurant.about_us}</p>
+                    <section className="bg-slate-900/50 backdrop-blur-xl p-10 rounded-3xl -mt-32 relative z-10 border border-white/5 shadow-2xl">
+                        <h2 className="text-[10px] font-black uppercase tracking-[0.3em] mb-4" style={{ color: primaryColor }}>Our Story</h2>
+                        <p className="text-xl md:text-2xl text-slate-100 font-medium leading-relaxed italic">"{restaurant.about_us}"</p>
                     </section>
                 )}
 
                 <section>
-                    <h2 className={`text-3xl font-bold text-${themeColor}-400 text-center mb-8`}>Our Menu</h2>
+                    <div className="flex flex-col items-center mb-16 text-center">
+                         <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter mb-4">The Selection</h2>
+                         <div className="h-1.5 w-24 rounded-full" style={{ background: `linear-gradient(45deg, ${primaryColor}, ${secondaryColor})` }}></div>
+                    </div>
+                    
+                    {!restaurant.is_accepting_orders && (
+                        <div className="bg-red-500/10 border border-red-500/20 p-8 rounded-2xl text-center mb-12">
+                             <p className="text-red-400 font-black uppercase tracking-widest text-lg">The Kitchen is Currently Resting</p>
+                             <p className="text-slate-500 text-sm mt-1">Check back during our opening hours!</p>
+                        </div>
+                    )}
+
                      {Object.entries(groupedMenu).map(([category, items]) => (
-                        <div key={category} className="mb-10">
-                            <h3 className="text-2xl font-semibold text-white mb-6">{category}</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div key={category} className="mb-20">
+                            <h3 className="text-2xl font-black text-white mb-10 flex items-center gap-4">
+                                <span className="h-0.5 flex-1 bg-white/5"></span>
+                                {category}
+                                <span className="h-0.5 flex-1 bg-white/5"></span>
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                 {items.map(item => (
-                                    <div key={item.id} className="bg-slate-900 p-4 rounded-lg border border-slate-800 flex gap-4">
-                                        {item.image_url && <img src={item.image_url} alt={item.name} className="w-28 h-28 rounded-md object-cover flex-shrink-0" />}
+                                    <div key={item.id} className="bg-slate-900/40 rounded-3xl border border-white/5 p-4 flex flex-col group hover:border-white/10 transition-all">
+                                        <div className="relative aspect-square rounded-2xl overflow-hidden mb-4 bg-slate-800">
+                                            {item.image_url ? (
+                                                <img src={item.image_url} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-slate-700"><Utensils size={48} /></div>
+                                            )}
+                                            <div className={cn("absolute top-3 left-3 px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest", item.is_veg ? "bg-emerald-500 text-white" : "bg-red-500 text-white")}>
+                                                {item.is_veg ? 'Pure Veg' : 'Non-Veg'}
+                                            </div>
+                                        </div>
                                         <div className="flex flex-col flex-grow">
-                                            <h4 className="font-bold text-lg text-white">{item.name}</h4>
-                                            <p className={`text-${themeColor}-400 font-semibold mt-auto text-lg`}>₹{item.price}</p>
-                                            <button onClick={() => addToCart(item)} className={`self-end -mb-2 -mr-2 bg-${themeColor}-600 text-white rounded-full p-2 hover:bg-${themeColor}-500 transition-colors`}><Plus size={20} /></button>
+                                            <h4 className="font-black text-lg text-white mb-1">{item.name}</h4>
+                                            <div className="flex justify-between items-center mt-auto">
+                                                <p className="text-2xl font-black" style={{ color: primaryColor }}>₹{item.price}</p>
+                                                {restaurant.is_accepting_orders && (
+                                                    <button 
+                                                        onClick={() => addToCart(item)} 
+                                                        style={{ background: `linear-gradient(45deg, ${primaryColor}, ${secondaryColor})` }}
+                                                        className="w-10 h-10 rounded-full flex items-center justify-center text-white shadow-lg shadow-black/20 hover:scale-110 active:scale-95 transition-all"
+                                                    >
+                                                        <Plus size={20} strokeWidth={3} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -303,16 +370,64 @@ const PublicMenuPageContent: React.FC = () => {
                         </div>
                     ))}
                 </section>
+
+                {/* Info Footer */}
+                <footer className="grid grid-cols-1 md:grid-cols-3 gap-12 pt-24 border-t border-white/5">
+                    <div className="space-y-4">
+                        <h5 className="text-[10px] font-black uppercase text-slate-500 tracking-[0.3em]">Location</h5>
+                        <p className="text-white text-lg font-bold leading-relaxed">{restaurant.address || 'Nanded, India'}</p>
+                        {restaurant.google_maps_url && (
+                            <a href={restaurant.google_maps_url} target="_blank" className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors">
+                                <Navigation size={14}/> Get Directions
+                            </a>
+                        )}
+                    </div>
+                    <div className="space-y-4">
+                        <h5 className="text-[10px] font-black uppercase text-slate-500 tracking-[0.3em]">Kitchen Hours</h5>
+                        <p className="text-white text-lg font-bold whitespace-pre-wrap">{restaurant.opening_hours || 'Mon - Sun: 9 AM - 11 PM'}</p>
+                    </div>
+                    <div className="space-y-4">
+                        <h5 className="text-[10px] font-black uppercase text-slate-500 tracking-[0.3em]">Reservations</h5>
+                        <p className="text-white text-2xl font-black">{restaurant.phone_number || '+91 000 000 000'}</p>
+                        <p className="text-xs text-slate-500">Call for bulk party bookings.</p>
+                    </div>
+                </footer>
             </main>
 
-            <button onClick={() => setIsCartOpen(true)} className={`fixed bottom-6 right-6 bg-${themeColor}-600 text-white rounded-full p-4 shadow-lg hover:bg-${themeColor}-500 transition-transform hover:scale-110 z-50`}>
-                <ShoppingCart size={28} />
-                {itemCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center">{itemCount}</span>}
-            </button>
-            <CartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} themeColor={themeColor} restaurant={restaurant} />
+            {/* Float Cart Trigger */}
+            {restaurant.is_accepting_orders && (
+                <button 
+                    onClick={() => setIsCartOpen(true)} 
+                    style={{ background: `linear-gradient(45deg, ${primaryColor}, ${secondaryColor})` }}
+                    className="fixed bottom-10 right-10 h-20 w-20 rounded-full flex items-center justify-center text-white shadow-2xl hover:scale-110 active:scale-90 transition-all z-40 group overflow-hidden"
+                >
+                    <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                    <ShoppingCart size={32} />
+                    {itemCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-white text-slate-950 text-xs font-black rounded-full h-8 w-8 flex items-center justify-center shadow-2xl border-2 border-slate-950">
+                            {itemCount}
+                        </span>
+                    )}
+                </button>
+            )}
+
+            <CartSidebar 
+                isOpen={isCartOpen} 
+                onClose={() => setIsCartOpen(false)} 
+                primaryColor={primaryColor} 
+                secondaryColor={secondaryColor} 
+                restaurant={restaurant} 
+            />
         </div>
     );
 };
 
-const PublicMenuPage: React.FC = () => ( <CartProvider><PublicMenuPageContent /></CartProvider> );
+// Global Font Injector
+const PublicMenuPage: React.FC = () => {
+    return (
+        <CartProvider>
+            <PublicMenuPageContent />
+        </CartProvider>
+    );
+};
 export default PublicMenuPage;

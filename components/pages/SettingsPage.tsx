@@ -1,43 +1,35 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { Restaurant } from '../../types';
 import { cn } from '../../lib/utils';
-import { Check, CreditCard } from 'lucide-react';
+import { 
+    Check, 
+    CreditCard, 
+    Smartphone, 
+    Layout, 
+    Palette, 
+    Type, 
+    Globe, 
+    Instagram, 
+    MessageCircle, 
+    Phone, 
+    MapPin, 
+    Image as ImageIcon,
+    Save,
+    Power,
+    RefreshCw
+} from 'lucide-react';
 
-const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
-  ({ className, ...props }, ref) => (
-    <input className={cn("block w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-slate-800 disabled:cursor-not-allowed", className)} ref={ref} {...props} />
-  )
-);
-Input.displayName = "Input";
-
-const TextArea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
-  ({ className, ...props }, ref) => (
-    <textarea className={cn("block w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500", className)} ref={ref} rows={4} {...props} />
-  )
-);
-TextArea.displayName = "TextArea";
-
-const SectionHeader: React.FC<{ title: string, subtitle: string }> = ({ title, subtitle }) => (
-    <div className="border-b border-slate-700 pb-4 mb-6">
-        <h2 className="text-xl font-bold text-white">{title}</h2>
-        <p className="text-sm text-slate-400">{subtitle}</p>
-    </div>
-);
-
-const themes = [
-    { name: 'emerald', color: 'bg-emerald-500' },
-    { name: 'sky', color: 'bg-sky-500' },
-    { name: 'rose', color: 'bg-rose-500' },
-    { name: 'amber', color: 'bg-amber-500' },
-];
-
-const fonts = [
-    { name: 'Inter', className: 'font-sans' },
-    { name: 'Roboto Slab', className: 'font-roboto-slab' },
-    { name: 'Lato', className: 'font-lato' },
+// Exporting fonts so they can be used in other components like PublicMenuPage
+export const fonts = [
+    { name: 'Poppins', category: 'Modern', family: "'Poppins', sans-serif" },
+    { name: 'Montserrat', category: 'Modern', family: "'Montserrat', sans-serif" },
+    { name: 'Playfair Display', category: 'Classic', family: "'Playfair Display', serif" },
+    { name: 'Roboto Slab', category: 'Classic', family: "'Roboto Slab', serif" },
+    { name: 'Quicksand', category: 'Soft', family: "'Quicksand', sans-serif" },
+    { name: 'Lato', category: 'Standard', family: "'Lato', sans-serif" },
 ];
 
 const SettingsPage: React.FC = () => {
@@ -49,23 +41,42 @@ const SettingsPage: React.FC = () => {
 
     const [formState, setFormState] = useState({
         name: '', city: 'Nanded', slug: '', address: '', phone: '', about: '',
-        theme_color: 'emerald', font: 'Inter', hero_title: '', hero_subtitle: '',
-        opening_hours: '', google_maps_url: '', upi_id: ''
+        theme_color: '#10b981', secondary_color: '#059669', font: 'Poppins',
+        hero_title: '', hero_subtitle: '', hero_opacity: 60,
+        opening_hours: '', google_maps_url: '', upi_id: '',
+        whatsapp_number: '', instagram_url: '', is_accepting_orders: true
     });
     const [heroImageFile, setHeroImageFile] = useState<File | null>(null);
+    const [previewHeroUrl, setPreviewHeroUrl] = useState<string | null>(null);
     
-    const createSlug = (text: string) => text.toLowerCase().replace(/&/g, 'and').replace(/ /g, '-').replace(/[^\w-]+/g, '');
-    
+    const cleanSlug = (text: string) => text.toLowerCase()
+        .replace(/&/g, 'and')
+        .replace(/\s+/g, '-')
+        .replace(/[^\w-]+/g, '')
+        .replace(/--+/g, '-');
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-        const { id, value } = e.target;
+        const { id, value, type } = e.target;
+        const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+        
         setFormState(prev => {
-            const newState = { ...prev, [id]: value };
-            // Auto-generate slug from name only if it's a new restaurant and slug hasn't been manually touched
+            const newState = { ...prev, [id]: val };
             if (id === 'name' && !restaurant) {
-                newState.slug = createSlug(value);
+                newState.slug = cleanSlug(value);
+            }
+            if (id === 'slug') {
+                newState.slug = cleanSlug(value);
             }
             return newState;
         });
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setHeroImageFile(file);
+            setPreviewHeroUrl(URL.createObjectURL(file));
+        }
     };
 
     const fetchRestaurant = useCallback(async () => {
@@ -79,14 +90,22 @@ const SettingsPage: React.FC = () => {
                 setFormState({
                     name: data.name || '', city: data.city || 'Nanded', slug: data.slug || '',
                     address: data.address || '', phone: data.phone_number || '', about: data.about_us || '',
-                    theme_color: data.theme_color || 'emerald', font: data.font || 'Inter',
-                    hero_title: data.hero_title || '', hero_subtitle: data.hero_subtitle || '',
-                    opening_hours: data.opening_hours || '', google_maps_url: data.google_maps_url || '',
-                    upi_id: data.upi_id || ''
+                    theme_color: data.theme_color || '#10b981', 
+                    secondary_color: data.secondary_color || '#059669',
+                    font: data.font || 'Poppins',
+                    hero_title: data.hero_title || '', 
+                    hero_subtitle: data.hero_subtitle || '', 
+                    hero_opacity: data.hero_opacity ?? 60,
+                    opening_hours: data.opening_hours || '', 
+                    google_maps_url: data.google_maps_url || '', 
+                    upi_id: data.upi_id || '',
+                    whatsapp_number: data.whatsapp_number || '',
+                    instagram_url: data.instagram_url || '',
+                    is_accepting_orders: data.is_accepting_orders ?? true
                 });
             }
         } catch (err: any) {
-            console.error('[SettingsPage] Error fetching restaurant:', err);
+            console.error('[SettingsPage] Fetch error:', err);
         } finally {
             setLoading(false);
         }
@@ -104,9 +123,7 @@ const SettingsPage: React.FC = () => {
             let hero_image_url = restaurant?.hero_image_url;
             if (heroImageFile) {
                 const filePath = `public/${restaurant?.id || user.id}/hero-${Date.now()}`;
-                const { error: uploadError } = await supabase.storage.from('restaurant-assets').upload(filePath, heroImageFile);
-                if (uploadError) throw uploadError;
-                
+                await supabase.storage.from('restaurant-assets').upload(filePath, heroImageFile);
                 const { data: { publicUrl } } = supabase.storage.from('restaurant-assets').getPublicUrl(filePath);
                 hero_image_url = publicUrl;
             }
@@ -118,135 +135,274 @@ const SettingsPage: React.FC = () => {
                 city: formState.city,
                 address: formState.address,
                 phone_number: formState.phone,
+                whatsapp_number: formState.whatsapp_number,
+                instagram_url: formState.instagram_url,
                 about_us: formState.about,
                 theme_color: formState.theme_color,
+                secondary_color: formState.secondary_color,
                 font: formState.font,
                 hero_title: formState.hero_title,
                 hero_subtitle: formState.hero_subtitle,
+                hero_opacity: formState.hero_opacity,
                 hero_image_url,
                 opening_hours: formState.opening_hours,
                 google_maps_url: formState.google_maps_url,
                 upi_id: formState.upi_id,
-                slug: formState.slug // Save exactly what is in the form
+                slug: formState.slug,
+                is_accepting_orders: formState.is_accepting_orders
             };
 
-            const { data, error } = await supabase.from('restaurants').upsert(upsertData, { onConflict: 'id' }).select().single();
+            const { error } = await supabase.from('restaurants').upsert(upsertData, { onConflict: 'id' });
             if (error) throw error;
 
-            setMessage({ type: 'success', text: 'Settings saved successfully!' });
-            if (data) setRestaurant(data);
+            setMessage({ type: 'success', text: 'Studio changes published!' });
+            fetchRestaurant();
         } catch (err: any) {
-            console.error('[SettingsPage] Error saving settings:', err);
-            setMessage({ type: 'error', text: `Save failed: ${err.message}` });
+            setMessage({ type: 'error', text: `Publication failed: ${err.message}` });
         } finally {
             setSaving(false);
         }
     };
 
-    if (loading) return <div className="p-8 text-center text-slate-400">Loading settings...</div>;
+    if (loading) return <div className="p-12 text-center text-slate-500 animate-pulse font-bold uppercase tracking-widest">Inking your design...</div>;
+
+    const selectedFont = fonts.find(f => f.name === formState.font);
 
     return (
-        <div>
-            <h1 className="text-3xl font-bold mb-2 text-white">Restaurant Settings</h1>
-            <p className="mb-6 text-slate-400">Manage your restaurant details and customize your public website.</p>
-            <form onSubmit={handleSave} className="max-w-4xl bg-slate-800/50 p-8 rounded-lg border border-slate-700 space-y-10">
-                
-                <section>
-                    <SectionHeader title="Basic Information" subtitle="Core details for your restaurant." />
-                    <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-1">Restaurant Name</label>
-                                <Input type="text" id="name" value={formState.name} onChange={handleInputChange} required />
-                            </div>
-                            <div>
-                                <label htmlFor="city" className="block text-sm font-medium text-slate-300 mb-1">City</label>
-                                <Input type="text" id="city" value={formState.city} onChange={handleInputChange} required />
-                            </div>
-                        </div>
-                         <div>
-                            <label htmlFor="slug" className="block text-sm font-medium text-slate-300 mb-1">Public URL Slug</label>
-                            <Input type="text" id="slug" value={formState.slug} onChange={handleInputChange} required placeholder="your-restaurant-slug" />
-                            <p className="text-xs text-slate-500 mt-1">This URL slug is always editable. Changing it will update your public menu address immediately.</p>
-                         </div>
-                         <div>
-                            <label htmlFor="upi_id" className="block text-sm font-medium text-slate-300 mb-1 flex items-center gap-2">
-                                <CreditCard size={16} className="text-emerald-500" />
-                                Business UPI ID (for Online Payments)
-                            </label>
-                            <Input type="text" id="upi_id" value={formState.upi_id} onChange={handleInputChange} placeholder="e.g., business@okaxis" />
-                            <p className="mt-1 text-xs text-slate-500 italic">Customers will see a Pay via UPI option during checkout.</p>
-                        </div>
+        <div className="flex flex-col xl:flex-row gap-8 h-full max-w-[1600px] mx-auto">
+            {/* --- STUDIO CONTROLS --- */}
+            <div className="flex-1 space-y-8 pb-12">
+                <div className="flex justify-between items-end">
+                    <div>
+                        <h1 className="text-4xl font-black text-white tracking-tighter">Design <span className="text-emerald-500">Studio</span></h1>
+                        <p className="text-slate-500 font-bold text-xs uppercase tracking-widest mt-1">Nanded SaaS Edition</p>
                     </div>
-                </section>
-
-                <section>
-                    <SectionHeader title="Branding & Website" subtitle="Customize the look and feel of your public page." />
-                    <div className="space-y-6">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-2">Theme Color</label>
-                            <div className="flex gap-4">
-                                {themes.map(theme => (
-                                    <button type="button" key={theme.name} onClick={() => setFormState(p => ({...p, theme_color: theme.name}))} className={cn('w-10 h-10 rounded-full transition-transform hover:scale-110 flex items-center justify-center', theme.color, formState.theme_color === theme.name && 'ring-2 ring-offset-2 ring-offset-slate-800 ring-white')}>
-                                        {formState.theme_color === theme.name && <Check className="w-5 h-5 text-white" />}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        <div>
-                             <label htmlFor="font" className="block text-sm font-medium text-slate-300 mb-1">Font Style</label>
-                             <select id="font" value={formState.font} onChange={handleInputChange} className="block w-full max-w-xs px-3 py-2 bg-slate-900 border border-slate-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                                {fonts.map(font => <option key={font.name} value={font.name} className={font.className}>{font.name}</option>)}
-                             </select>
-                        </div>
-                         <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-1">Hero Image</label>
-                            {restaurant?.hero_image_url && !heroImageFile && <img src={restaurant.hero_image_url} alt="Hero" className="w-48 h-24 object-cover rounded-md mb-2" />}
-                            <input type="file" onChange={e => e.target.files && setHeroImageFile(e.target.files[0])} accept="image/*" className="mt-1 block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-500/10 file:text-emerald-500 hover:file:bg-emerald-500/20 transition-colors"/>
-                        </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label htmlFor="hero_title" className="block text-sm font-medium text-slate-300 mb-1">Hero Title</label>
-                                <Input type="text" id="hero_title" value={formState.hero_title} onChange={handleInputChange} placeholder="e.g., The Best Biryani in Nanded" />
-                            </div>
-                            <div>
-                                <label htmlFor="hero_subtitle" className="block text-sm font-medium text-slate-300 mb-1">Hero Subtitle</label>
-                                <Input type="text" id="hero_subtitle" value={formState.hero_subtitle} onChange={handleInputChange} placeholder="Authentic flavors, delivered to you." />
-                            </div>
-                        </div>
-                        <div>
-                            <label htmlFor="about" className="block text-sm font-medium text-slate-300 mb-1">About Us</label>
-                            <TextArea id="about" value={formState.about} onChange={handleInputChange} placeholder="Tell your customers a little about your restaurant..." />
-                        </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label htmlFor="address" className="block text-sm font-medium text-slate-300 mb-1">Address</label>
-                                <Input type="text" id="address" value={formState.address} onChange={handleInputChange} />
-                            </div>
-                            <div>
-                                <label htmlFor="phone" className="block text-sm font-medium text-slate-300 mb-1">Phone Number</label>
-                                <Input type="tel" id="phone" value={formState.phone} onChange={handleInputChange} />
-                            </div>
-                        </div>
-                         <div>
-                            <label htmlFor="opening_hours" className="block text-sm font-medium text-slate-300 mb-1">Opening Hours</label>
-                            <TextArea id="opening_hours" value={formState.opening_hours} onChange={handleInputChange} rows={3} placeholder="e.g., Mon-Fri: 9am - 10pm&#10;Sat-Sun: 11am - 11pm" />
-                        </div>
-                         <div>
-                            <label htmlFor="google_maps_url" className="block text-sm font-medium text-slate-300 mb-1">Google Maps URL</label>
-                            <Input type="url" id="google_maps_url" value={formState.google_maps_url} onChange={handleInputChange} placeholder="https://maps.app.goo.gl/..." />
-                        </div>
-                    </div>
-                </section>
-                
-                <div>
-                    <button type="submit" disabled={saving} className="inline-flex justify-center py-2 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-emerald-500 disabled:opacity-50">
-                        {saving ? 'Saving...' : 'Save All Settings'}
+                    <button 
+                        onClick={handleSave} 
+                        disabled={saving} 
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 px-8 rounded-xl transition-all shadow-glow-emerald flex items-center gap-2 disabled:opacity-50"
+                    >
+                        {saving ? <RefreshCw className="animate-spin" size={20} /> : <Save size={20} />}
+                        {saving ? 'Publishing...' : 'Publish Studio'}
                     </button>
                 </div>
-            </form>
+
+                <div className="space-y-6">
+                    {/* Section: Basic Identity */}
+                    <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6">
+                        <h3 className="text-white font-bold mb-4 flex items-center gap-2"><Globe size={18} className="text-emerald-500"/> Basic Identity</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Restaurant Name</label>
+                                <input id="name" value={formState.name} onChange={handleInputChange} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white focus:border-emerald-500 outline-none" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Public Slug</label>
+                                <input id="slug" value={formState.slug} onChange={handleInputChange} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-emerald-400 font-mono text-sm focus:border-emerald-500 outline-none" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">UPI ID (Business)</label>
+                                <input id="upi_id" value={formState.upi_id} onChange={handleInputChange} placeholder="business@upi" className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white focus:border-emerald-500 outline-none" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">City</label>
+                                <input id="city" value={formState.city} onChange={handleInputChange} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white focus:border-emerald-500 outline-none" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Section: Design Lab */}
+                    <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6">
+                        <h3 className="text-white font-bold mb-4 flex items-center gap-2"><Palette size={18} className="text-purple-500"/> The Design Lab</h3>
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Primary Theme Color</label>
+                                    <div className="flex items-center gap-3">
+                                        <input type="color" id="theme_color" value={formState.theme_color} onChange={handleInputChange} className="w-12 h-12 rounded-lg cursor-pointer bg-transparent border-none" />
+                                        <input type="text" value={formState.theme_color} onChange={handleInputChange} id="theme_color" className="bg-slate-950/50 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-slate-300 font-mono w-24" />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Secondary Blend Color</label>
+                                    <div className="flex items-center gap-3">
+                                        <input type="color" id="secondary_color" value={formState.secondary_color} onChange={handleInputChange} className="w-12 h-12 rounded-lg cursor-pointer bg-transparent border-none" />
+                                        <input type="text" value={formState.secondary_color} onChange={handleInputChange} id="secondary_color" className="bg-slate-950/50 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-slate-300 font-mono w-24" />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex justify-between">Hero Overlay Opacity <span>{formState.hero_opacity}%</span></label>
+                                <input type="range" id="hero_opacity" value={formState.hero_opacity} onChange={handleInputChange} min="0" max="100" className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Typography selection</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {fonts.map(f => (
+                                        <button 
+                                            key={f.name}
+                                            onClick={() => setFormState(p => ({...p, font: f.name}))}
+                                            className={cn(
+                                                "p-3 rounded-xl border text-left transition-all",
+                                                formState.font === f.name ? "bg-emerald-500/10 border-emerald-500 text-white shadow-glow-emerald" : "bg-slate-950/30 border-white/5 text-slate-500 hover:border-white/20"
+                                            )}
+                                        >
+                                            <p className="text-[8px] font-black uppercase tracking-tighter opacity-50">{f.category}</p>
+                                            <p style={{ fontFamily: f.family }} className="text-sm font-bold truncate">{f.name}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Section: Content & Operations */}
+                    <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-white font-bold flex items-center gap-2"><Layout size={18} className="text-amber-500"/> Content & Operations</h3>
+                            <label className="flex items-center gap-3 cursor-pointer group">
+                                <span className={cn("text-[10px] font-black uppercase tracking-wider transition-colors", formState.is_accepting_orders ? "text-emerald-500" : "text-red-500")}>
+                                    {formState.is_accepting_orders ? 'Orders Active' : 'Kitchen Closed'}
+                                </span>
+                                <div className="relative">
+                                    <input type="checkbox" id="is_accepting_orders" checked={formState.is_accepting_orders} onChange={handleInputChange} className="sr-only" />
+                                    <div className={cn("w-10 h-5 rounded-full transition-colors", formState.is_accepting_orders ? "bg-emerald-600" : "bg-slate-800")}></div>
+                                    <div className={cn("absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform", formState.is_accepting_orders ? "translate-x-5" : "translate-x-0")}></div>
+                                </div>
+                            </label>
+                        </div>
+                        <div className="space-y-4">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Hero Headline</label>
+                                <input id="hero_title" value={formState.hero_title} onChange={handleInputChange} placeholder="e.g., Best Biryani in Nanded" className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white outline-none" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Hero Image</label>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-lg bg-slate-950 flex items-center justify-center border border-white/5 overflow-hidden">
+                                        {(previewHeroUrl || restaurant?.hero_image_url) ? (
+                                            <img src={previewHeroUrl || restaurant?.hero_image_url || ''} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <ImageIcon size={20} className="text-slate-700" />
+                                        )}
+                                    </div>
+                                    <input type="file" onChange={handleFileChange} className="text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-slate-800 file:text-white hover:file:bg-slate-700 cursor-pointer" />
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">About Us Narration</label>
+                                <textarea id="about" value={formState.about} onChange={handleInputChange} rows={3} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white outline-none resize-none" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Section: Contact & Socials */}
+                    <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6">
+                        <h3 className="text-white font-bold mb-4 flex items-center gap-2"><Phone size={18} className="text-sky-500"/> Connect & Socials</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1"><Instagram size={10}/> Instagram</label>
+                                <input id="instagram_url" value={formState.instagram_url} onChange={handleInputChange} placeholder="@profile" className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white outline-none" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1"><MessageCircle size={10}/> WhatsApp Number</label>
+                                <input id="whatsapp_number" value={formState.whatsapp_number} onChange={handleInputChange} placeholder="91XXXXXXXXXX" className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white outline-none" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* --- LIVE PREVIEW (MOBILE) --- */}
+            <div className="xl:w-[400px] flex-shrink-0">
+                <div className="sticky top-24">
+                    <div className="flex items-center justify-between mb-4">
+                        <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2"><Smartphone size={14}/> Live Mirror Preview</p>
+                        <div className="flex gap-1">
+                            <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                        </div>
+                    </div>
+                    
+                    <div className="relative mx-auto w-[320px] h-[640px] bg-slate-950 rounded-[3rem] border-8 border-slate-800 shadow-2xl overflow-hidden shadow-black/50">
+                        {/* Status Bar */}
+                        <div className="h-6 w-full flex justify-between items-center px-6 pt-2">
+                            <span className="text-[10px] font-bold text-slate-400">9:41</span>
+                            <div className="flex gap-1.5">
+                                <div className="w-3 h-3 border border-slate-400 rounded-sm"></div>
+                                <div className="w-3 h-3 bg-slate-400 rounded-full"></div>
+                            </div>
+                        </div>
+
+                        {/* Mirror Content */}
+                        <div className="h-full overflow-y-auto overflow-x-hidden" style={{ fontFamily: selectedFont?.family }}>
+                            {/* Mirror Hero */}
+                            <div className="h-48 relative bg-slate-800 overflow-hidden">
+                                {(previewHeroUrl || restaurant?.hero_image_url) && (
+                                    <img src={previewHeroUrl || restaurant?.hero_image_url || ''} className="absolute inset-0 w-full h-full object-cover" />
+                                )}
+                                <div 
+                                    className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center"
+                                    style={{ backgroundColor: `rgba(0,0,0,${formState.hero_opacity / 100})` }}
+                                >
+                                    <h2 className="text-white text-xl font-bold line-clamp-2">{formState.hero_title || 'Your Store Name'}</h2>
+                                    <p className="text-white/60 text-[10px] mt-1 line-clamp-1">{formState.hero_subtitle || 'Tagline goes here'}</p>
+                                </div>
+                            </div>
+
+                            {/* Mirror Sections */}
+                            <div className="p-4 space-y-4">
+                                <div className="bg-slate-900 border border-white/5 p-4 rounded-xl -mt-10 relative z-10 shadow-lg">
+                                    <h4 className="text-[10px] font-black uppercase text-slate-500 mb-2">About Us</h4>
+                                    <p className="text-[10px] text-slate-400 line-clamp-3 leading-relaxed">{formState.about || 'A beautiful story about your restaurant in Nanded...'}</p>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <h4 className="text-xs font-bold text-white">Featured Menu</h4>
+                                        <div className="h-4 w-12 bg-slate-800 rounded-full"></div>
+                                    </div>
+                                    {[1, 2].map(i => (
+                                        <div key={i} className="flex gap-3 bg-slate-900 border border-white/5 p-2 rounded-xl">
+                                            <div className="w-16 h-16 bg-slate-800 rounded-lg"></div>
+                                            <div className="flex-1 space-y-1">
+                                                <div className="h-2 w-20 bg-slate-800 rounded-full"></div>
+                                                <div className="h-2 w-12 bg-slate-800 rounded-full"></div>
+                                                <div className="flex justify-between items-center pt-2">
+                                                    <span className="text-[10px] font-bold" style={{ color: formState.theme_color }}>₹299</span>
+                                                    <div className="w-6 h-6 rounded-full" style={{ background: `linear-gradient(45deg, ${formState.theme_color}, ${formState.secondary_color})` }}></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Sticky Order Button Mirror */}
+                            <div className="absolute bottom-6 left-0 right-0 px-6">
+                                <div 
+                                    className="w-full py-2.5 rounded-full text-white text-[10px] font-black uppercase text-center shadow-lg"
+                                    style={{ 
+                                        background: `linear-gradient(45deg, ${formState.theme_color}, ${formState.secondary_color})`,
+                                        opacity: formState.is_accepting_orders ? 1 : 0.5
+                                    }}
+                                >
+                                    {formState.is_accepting_orders ? 'View Full Menu' : 'Currently Offline'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {message && (
-                <div className={`mt-4 max-w-4xl p-3 rounded-md text-sm ${message.type === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+                <div className={cn(
+                    "fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest shadow-2xl animate-in slide-in-from-bottom-10",
+                    message.type === 'success' ? "bg-emerald-500 text-white shadow-emerald-500/20" : "bg-red-500 text-white shadow-red-500/20"
+                )}>
                     {message.text}
                 </div>
             )}

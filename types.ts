@@ -7,16 +7,21 @@ export interface Restaurant {
   slug: string;
   created_at: string;
   theme_color?: string;
+  secondary_color?: string;
   font?: string;
   hero_image_url?: string;
   hero_title?: string;
   hero_subtitle?: string;
+  hero_opacity?: number;
   about_us?: string;
   address?: string;
   phone_number?: string;
+  whatsapp_number?: string;
+  instagram_url?: string;
   opening_hours?: string;
   google_maps_url?: string;
   upi_id?: string;
+  is_accepting_orders?: boolean;
 }
 
 export interface MenuItem {
