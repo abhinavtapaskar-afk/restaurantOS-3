@@ -124,6 +124,10 @@ const SettingsPage: React.FC = () => {
                 hero_image_url = publicUrl;
             }
 
+            // AVOID NULL SUBDOMAIN ERROR: Map slug to subdomain, fallback to cleaned name, or default
+            const finalSlug = formState.slug.trim();
+            const subdomainValue = finalSlug || cleanSlug(formState.name) || `store-${user.id.substring(0, 5)}`;
+
             const upsertData = {
                 id: restaurant?.id, 
                 owner_id: user.id,
@@ -144,7 +148,8 @@ const SettingsPage: React.FC = () => {
                 opening_hours: formState.opening_hours,
                 google_maps_url: formState.google_maps_url,
                 upi_id: formState.upi_id,
-                slug: formState.slug,
+                slug: subdomainValue, // Ensure slug is updated
+                subdomain: subdomainValue, // Map to new column to fix NOT NULL constraint
                 is_accepting_orders: formState.is_accepting_orders
             };
 
@@ -194,7 +199,7 @@ const SettingsPage: React.FC = () => {
                                 <input id="name" value={formState.name} onChange={handleInputChange} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white focus:border-emerald-500 outline-none" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Public Slug</label>
+                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Public Slug / Subdomain</label>
                                 <input id="slug" value={formState.slug} onChange={handleInputChange} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-emerald-400 font-mono text-sm focus:border-emerald-500 outline-none" />
                             </div>
                             <div className="space-y-1">
