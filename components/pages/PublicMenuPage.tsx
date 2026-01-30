@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
 import { Restaurant, MenuItem, CartItem, PaymentMethod } from '../../types';
-import { Plus, Minus, ShoppingCart, X, MapPin, Phone, Navigation, CreditCard, Banknote, Bike, Instagram, MessageCircle, Utensils } from 'lucide-react';
+import { Plus, Minus, ShoppingCart, X, MapPin, Phone, Navigation, CreditCard, Banknote, Bike, Instagram, MessageCircle, Utensils, Zap } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import Modal from '../ui/Modal';
 import { fonts } from './SettingsPage';
@@ -22,7 +22,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return (<CartContext.Provider value={{ cart, addToCart, removeFromCart, updateQuantity, clearCart, total, itemCount }}>{children}</CartContext.Provider>);
 };
 
-const CartSidebar: React.FC<{ isOpen: boolean, onClose: () => void, primaryColor: string, secondaryColor: string, restaurant: Restaurant | null }> = ({ isOpen, onClose, primaryColor, secondaryColor, restaurant }) => {
+const CartSidebar: React.FC<{ isOpen: boolean, onClose: () => void, primaryColor: string, secondaryColor: string, restaurant: Restaurant | null, tableNumber: number | null }> = ({ isOpen, onClose, primaryColor, secondaryColor, restaurant, tableNumber }) => {
     const { cart, updateQuantity, total, itemCount } = useCart();
     const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
     return (<>
@@ -61,20 +61,20 @@ const CartSidebar: React.FC<{ isOpen: boolean, onClose: () => void, primaryColor
                 </div></>) : (<div className="flex-1 flex flex-col items-center justify-center text-slate-500"><ShoppingCart size={48} /><p className="mt-4">Your cart is empty</p></div>)}
             </div>
         </div>
-        {isCheckoutOpen && <CheckoutModal onClose={() => setIsCheckoutOpen(false)} primaryColor={primaryColor} secondaryColor={secondaryColor} restaurant={restaurant} />}
+        {isCheckoutOpen && <CheckoutModal onClose={() => setIsCheckoutOpen(false)} primaryColor={primaryColor} secondaryColor={secondaryColor} restaurant={restaurant} tableNumber={tableNumber} />}
     </>);
 };
 
-const CheckoutModal: React.FC<{ onClose: () => void, primaryColor: string, secondaryColor: string, restaurant: Restaurant | null }> = ({ onClose, primaryColor, secondaryColor, restaurant }) => {
+const CheckoutModal: React.FC<{ onClose: () => void, primaryColor: string, secondaryColor: string, restaurant: Restaurant | null, tableNumber: number | null }> = ({ onClose, primaryColor, secondaryColor, restaurant, tableNumber }) => {
     const { cart, total, clearCart } = useCart();
     const [name, setName] = useState('');
     const [phone, setPhone] = useState('');
-    const [address, setAddress] = useState('');
-    const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
+    const [address, setAddress] = useState(tableNumber ? `Table ${tableNumber}` : '');
+    const [location, setLocation] = useState<{ lat: number, lng: number } | null>(tableNumber ? { lat: 0, lng: 0 } : null);
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('COD');
     const [isLocating, setIsLocating] = useState(false);
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-    const isReadyToOrder = location !== null;
+    const isReadyToOrder = location !== null || tableNumber !== null;
 
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -130,15 +130,16 @@ const CheckoutModal: React.FC<{ onClose: () => void, primaryColor: string, secon
                 customer_name: name,
                 customer_phone: phone,
                 customer_address: address,
-                latitude: location?.lat,
-                longitude: location?.lng,
+                latitude: location?.lat || null,
+                longitude: location?.lng || null,
                 subtotal: total,
                 total_amount: total,
                 order_details: cart, 
                 items: cart, 
                 status: 'pending' as const,
                 payment_method: paymentMethod,
-                order_type: 'DELIVERY'
+                order_type: tableNumber ? 'DINE_IN' : 'DELIVERY',
+                table_number: tableNumber
             };
 
             const { data, error } = await supabase.from('orders').insert(newOrder).select('id').single();
@@ -163,27 +164,41 @@ const CheckoutModal: React.FC<{ onClose: () => void, primaryColor: string, secon
     };
 
     return (
-        <Modal isOpen={true} onClose={onClose} title="Complete Your Order">
+        <Modal isOpen={true} onClose={onClose} title={tableNumber ? `Table ${tableNumber} Order` : "Complete Your Order"}>
             <form onSubmit={handleSubmit} className="space-y-4">
-                <input type="text" placeholder="Full Name" value={name} onChange={e => setName(e.target.value)} required className="w-full bg-slate-800 p-2 rounded-md border border-slate-700 text-white outline-none focus:border-emerald-500"/>
-                <input type="tel" placeholder="Phone Number" value={phone} onChange={e => setPhone(e.target.value)} required className="w-full bg-slate-800 p-2 rounded-md border border-slate-700 text-white outline-none focus:border-emerald-500"/>
-                
-                <div className="space-y-2">
-                    <div className="flex gap-2">
-                        <textarea placeholder="House No, Floor, Landmark (Optional)" value={address} onChange={e => setAddress(e.target.value)} className="flex-1 bg-slate-800 p-2 rounded-md border border-slate-700 text-white outline-none focus:border-emerald-500" rows={2}/>
-                        <button type="button" onClick={detectLocation} disabled={isLocating} className={cn("px-4 rounded-md border border-slate-700 transition-colors flex items-center justify-center", location ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-slate-800 text-slate-400")}>
-                            {isLocating ? <div className="animate-spin h-5 w-5 border-2 border-emerald-500 border-t-transparent rounded-full" /> : <Navigation size={20} />}
-                        </button>
+                {tableNumber && (
+                    <div className="bg-indigo-600/10 border border-indigo-500/20 p-3 rounded-xl flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-white font-black">
+                            {tableNumber}
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase text-indigo-400 tracking-widest">Dine-In Session</p>
+                            <p className="text-xs text-white font-bold">Automatic Table Service Activated</p>
+                        </div>
                     </div>
-                    {location ? (
-                         <p className="text-xs text-emerald-400 text-right font-bold uppercase tracking-wider">✓ Precise Location Set</p>
-                    ) : (
-                         <p className="text-xs text-amber-400 text-right italic">Required for delivery dispatch.</p>
-                    )}
-                </div>
+                )}
+                
+                <input type="text" placeholder="Your Name" value={name} onChange={e => setName(e.target.value)} required className="w-full bg-slate-800 p-2.5 rounded-md border border-slate-700 text-white outline-none focus:border-emerald-500"/>
+                <input type="tel" placeholder="WhatsApp Number" value={phone} onChange={e => setPhone(e.target.value)} required className="w-full bg-slate-800 p-2.5 rounded-md border border-slate-700 text-white outline-none focus:border-emerald-500"/>
+                
+                {!tableNumber && (
+                    <div className="space-y-2">
+                        <div className="flex gap-2">
+                            <textarea placeholder="Delivery Address" value={address} onChange={e => setAddress(e.target.value)} required className="flex-1 bg-slate-800 p-2 rounded-md border border-slate-700 text-white outline-none focus:border-emerald-500" rows={2}/>
+                            <button type="button" onClick={detectLocation} disabled={isLocating} className={cn("px-4 rounded-md border border-slate-700 transition-colors flex items-center justify-center", location ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-slate-800 text-slate-400")}>
+                                {isLocating ? <div className="animate-spin h-5 w-5 border-2 border-emerald-500 border-t-transparent rounded-full" /> : <Navigation size={20} />}
+                            </button>
+                        </div>
+                        {location ? (
+                            <p className="text-xs text-emerald-400 text-right font-bold uppercase tracking-wider">✓ Dispatch Location Ready</p>
+                        ) : (
+                            <p className="text-xs text-amber-400 text-right italic">Required for logistics.</p>
+                        )}
+                    </div>
+                )}
 
                 <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Payment Strategy</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Payment Method</label>
                     <div className="grid grid-cols-2 gap-3">
                         <button 
                             type="button" 
@@ -191,13 +206,13 @@ const CheckoutModal: React.FC<{ onClose: () => void, primaryColor: string, secon
                             className={cn("flex flex-col items-center gap-2 p-3 rounded-xl border transition-all", paymentMethod === 'COD' ? "border-emerald-500 bg-emerald-500/10 text-white" : "border-slate-700 bg-slate-800 text-slate-400")}
                         >
                             <Banknote size={24} />
-                            <span className="text-[10px] font-black uppercase tracking-widest">Cash</span>
+                            <span className="text-[10px] font-black uppercase tracking-widest">{tableNumber ? 'Pay at Cashier' : 'Cash'}</span>
                         </button>
                         <button 
                             type="button" 
                             disabled={!restaurant?.upi_id}
                             onClick={() => setPaymentMethod('UPI')}
-                            className={cn("flex flex-col items-center gap-2 p-3 rounded-xl border transition-all", paymentMethod === 'UPI' ? "border-emerald-500 bg-emerald-500/10 text-white" : "border-slate-700 bg-slate-800 text-slate-400", !restaurant?.upi_id && "opacity-50 custom-not-allowed")}
+                            className={cn("flex flex-col items-center gap-2 p-3 rounded-xl border transition-all", paymentMethod === 'UPI' ? "border-emerald-500 bg-emerald-500/10 text-white" : "border-slate-700 bg-slate-800 text-slate-400", !restaurant?.upi_id && "opacity-50 cursor-not-allowed")}
                         >
                             <CreditCard size={24} />
                             <span className="text-[10px] font-black uppercase tracking-widest">UPI Pay</span>
@@ -211,7 +226,7 @@ const CheckoutModal: React.FC<{ onClose: () => void, primaryColor: string, secon
                     style={{ background: isReadyToOrder ? `linear-gradient(45deg, ${primaryColor}, ${secondaryColor})` : '#334155' }}
                     className="w-full text-white font-black uppercase tracking-widest py-4 rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                    {isPlacingOrder ? 'Confirming...' : (paymentMethod === 'UPI' ? `Pay & Order ₹${total.toFixed(2)}` : `Place Order ₹${total.toFixed(2)}`)}
+                    {isPlacingOrder ? 'Processing...' : (paymentMethod === 'UPI' ? `Pay & Submit ₹${total.toFixed(2)}` : `Submit Order ₹${total.toFixed(2)}`)}
                 </button>
             </form>
         </Modal>
@@ -220,6 +235,9 @@ const CheckoutModal: React.FC<{ onClose: () => void, primaryColor: string, secon
 
 const PublicMenuPageContent: React.FC = () => {
     const { slug } = useParams<{ slug: string }>();
+    const [searchParams] = useSearchParams();
+    const tableNumber = searchParams.get('table') ? parseInt(searchParams.get('table')!) : null;
+    
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -286,6 +304,12 @@ const PublicMenuPageContent: React.FC = () => {
 
             <header className="h-[50vh] bg-cover bg-center relative" style={{ backgroundImage: `url(${restaurant.hero_image_url || 'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?q=80&w=2070&auto=format&fit=crop'})` }}>
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6" style={{ backgroundColor: `rgba(0,0,0,${heroOpacity})` }}>
+                    {tableNumber && (
+                        <div className="absolute top-6 left-6 flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-full font-black uppercase text-[10px] tracking-widest shadow-2xl animate-in slide-in-from-left duration-700">
+                            <Zap size={14} className="fill-white" /> Table {tableNumber} Active
+                        </div>
+                    )}
+                    
                     {restaurant.hero_title && (
                         <h1 className="text-5xl md:text-8xl font-black text-white tracking-tighter drop-shadow-2xl">{restaurant.hero_title}</h1>
                     )}
@@ -293,7 +317,6 @@ const PublicMenuPageContent: React.FC = () => {
                         <p className="text-lg md:text-2xl text-white/80 mt-4 max-w-2xl font-medium">{restaurant.hero_subtitle}</p>
                     )}
                     
-                    {/* Socials integration */}
                     <div className="flex gap-4 mt-8">
                         {restaurant.instagram_url && (
                             <a href={restaurant.instagram_url} target="_blank" className="p-3 bg-white/10 backdrop-blur-md rounded-full text-white hover:bg-white/20 transition-all border border-white/10"><Instagram size={20}/></a>
@@ -417,6 +440,7 @@ const PublicMenuPageContent: React.FC = () => {
                 primaryColor={primaryColor} 
                 secondaryColor={secondaryColor} 
                 restaurant={restaurant} 
+                tableNumber={tableNumber}
             />
         </div>
     );

@@ -23,6 +23,7 @@ export interface Restaurant {
   google_maps_url?: string;
   upi_id?: string;
   is_accepting_orders?: boolean;
+  total_tables?: number;
 }
 
 export interface MenuItem {
@@ -59,6 +60,7 @@ export interface Order {
   payment_method: PaymentMethod;
   created_at: string;
   order_type: string;
+  table_number?: number | null;
 }
 
 export interface Review {

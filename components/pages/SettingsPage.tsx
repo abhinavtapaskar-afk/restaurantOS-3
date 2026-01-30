@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { Restaurant } from '../../types';
@@ -16,7 +16,10 @@ import {
     MapPin, 
     Image as ImageIcon,
     Save,
-    RefreshCw
+    RefreshCw,
+    QrCode,
+    Printer,
+    Table as TableIcon
 } from 'lucide-react';
 
 export const fonts = [
@@ -34,13 +37,15 @@ const SettingsPage: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const printRef = useRef<HTMLDivElement>(null);
 
     const [formState, setFormState] = useState({
         name: '', city: 'Nanded', slug: '', address: '', phone: '', about: '',
         theme_color: '#10b981', secondary_theme_color: '#059669', font: 'Poppins',
         hero_title: '', hero_subtitle: '', hero_opacity: 60,
         opening_hours: '', google_maps_url: '', upi_id: '',
-        whatsapp_number: '', instagram_url: '', is_accepting_orders: true
+        whatsapp_number: '', instagram_url: '', is_accepting_orders: true,
+        total_tables: 0
     });
     const [heroImageFile, setHeroImageFile] = useState<File | null>(null);
     const [previewHeroUrl, setPreviewHeroUrl] = useState<string | null>(null);
@@ -53,7 +58,7 @@ const SettingsPage: React.FC = () => {
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { id, value, type } = e.target;
-        const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+        const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : (type === 'number' ? parseInt(value) || 0 : value);
         
         setFormState(prev => {
             const newState = { ...prev, [id]: val };
@@ -97,7 +102,8 @@ const SettingsPage: React.FC = () => {
                     upi_id: data.upi_id || '',
                     whatsapp_number: data.whatsapp_number || '',
                     instagram_url: data.instagram_url || '',
-                    is_accepting_orders: data.is_accepting_orders ?? true
+                    is_accepting_orders: data.is_accepting_orders ?? true,
+                    total_tables: data.total_tables || 0
                 });
             }
         } catch (err: any) {
@@ -124,7 +130,6 @@ const SettingsPage: React.FC = () => {
                 hero_image_url = publicUrl;
             }
 
-            // AVOID NULL SUBDOMAIN ERROR: Map slug to subdomain, fallback to cleaned name, or default
             const finalSlug = formState.slug.trim();
             const subdomainValue = finalSlug || cleanSlug(formState.name) || `store-${user.id.substring(0, 5)}`;
 
@@ -148,9 +153,10 @@ const SettingsPage: React.FC = () => {
                 opening_hours: formState.opening_hours,
                 google_maps_url: formState.google_maps_url,
                 upi_id: formState.upi_id,
-                slug: subdomainValue, // Ensure slug is updated
-                subdomain: subdomainValue, // Map to new column to fix NOT NULL constraint
-                is_accepting_orders: formState.is_accepting_orders
+                slug: subdomainValue,
+                subdomain: subdomainValue,
+                is_accepting_orders: formState.is_accepting_orders,
+                total_tables: formState.total_tables
             };
 
             const { error } = await supabase.from('restaurants').upsert(upsertData, { onConflict: 'id' });
@@ -166,9 +172,28 @@ const SettingsPage: React.FC = () => {
         }
     };
 
+    const handlePrint = () => {
+        const printContent = printRef.current;
+        const windowPrint = window.open('', '', 'width=900,height=650');
+        if (windowPrint && printContent) {
+            windowPrint.document.write('<html><head><title>Print QR Codes</title>');
+            windowPrint.document.write('<script src="https://cdn.tailwindcss.com"></script>');
+            windowPrint.document.write('</head><body class="bg-white p-10">');
+            windowPrint.document.write(printContent.innerHTML);
+            windowPrint.document.write('</body></html>');
+            windowPrint.document.close();
+            windowPrint.focus();
+            setTimeout(() => {
+                windowPrint.print();
+                windowPrint.close();
+            }, 500);
+        }
+    };
+
     if (loading) return <div className="p-12 text-center text-slate-500 animate-pulse font-bold uppercase tracking-widest">Inking your design...</div>;
 
     const selectedFont = fonts.find(f => f.name === formState.font);
+    const publicBaseUrl = `${window.location.origin}${window.location.pathname}#/menu/${formState.slug}`;
 
     return (
         <div className="flex flex-col xl:flex-row gap-8 h-full max-w-[1600px] mx-auto">
@@ -209,6 +234,71 @@ const SettingsPage: React.FC = () => {
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">City</label>
                                 <input id="city" value={formState.city} onChange={handleInputChange} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white focus:border-emerald-500 outline-none" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Section: Table QR Management */}
+                    <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl p-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-white font-bold flex items-center gap-2"><QrCode size={18} className="text-indigo-500"/> Table QR Management</h3>
+                            {formState.total_tables > 0 && (
+                                <button onClick={handlePrint} className="flex items-center gap-2 text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 transition-colors">
+                                    <Printer size={14} /> Print All QR Codes
+                                </button>
+                            )}
+                        </div>
+                        <div className="space-y-6">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Number of Tables in Restaurant</label>
+                                <input id="total_tables" type="number" min="0" max="100" value={formState.total_tables} onChange={handleInputChange} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white focus:border-indigo-500 outline-none" />
+                            </div>
+
+                            {formState.total_tables > 0 ? (
+                                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4 h-48 overflow-y-auto pr-2 scrollbar-hide">
+                                    {Array.from({ length: formState.total_tables }).map((_, i) => {
+                                        const tableNum = i + 1;
+                                        const qrUrl = `${publicBaseUrl}?table=${tableNum}`;
+                                        const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrUrl)}&bgcolor=0f172a&color=ffffff&margin=10`;
+                                        return (
+                                            <div key={tableNum} className="bg-slate-950/50 p-3 rounded-xl border border-white/5 text-center group">
+                                                <div className="aspect-square bg-white rounded-lg p-1 mb-2">
+                                                    <img src={qrImage} alt={`Table ${tableNum}`} className="w-full h-full" />
+                                                </div>
+                                                <span className="text-[10px] font-black uppercase text-slate-500">Table {tableNum.toString().padStart(2, '0')}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="py-8 text-center bg-slate-950/30 rounded-xl border border-dashed border-white/10">
+                                    <TableIcon size={32} className="text-slate-700 mx-auto mb-2 opacity-20" />
+                                    <p className="text-xs text-slate-500 font-bold uppercase">No tables configured.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* HIDDEN PRINT VIEW */}
+                    <div className="hidden">
+                        <div ref={printRef}>
+                            <div className="grid grid-cols-2 gap-10">
+                                {Array.from({ length: formState.total_tables }).map((_, i) => {
+                                    const tableNum = i + 1;
+                                    const qrUrl = `${publicBaseUrl}?table=${tableNum}`;
+                                    const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}`;
+                                    return (
+                                        <div key={tableNum} className="border-4 border-indigo-600 rounded-[2rem] p-10 text-center flex flex-col items-center">
+                                            <h2 className="text-3xl font-black text-slate-900 mb-2">{formState.name}</h2>
+                                            <p className="text-slate-500 font-bold uppercase text-sm mb-6">Scan to Order & Pay</p>
+                                            <img src={qrImage} className="w-48 h-48 mb-6" alt={`QR Table ${tableNum}`} />
+                                            <div className="bg-indigo-600 text-white px-8 py-3 rounded-2xl">
+                                                <span className="text-2xl font-black uppercase tracking-widest">Table {tableNum.toString().padStart(2, '0')}</span>
+                                            </div>
+                                            <p className="mt-8 text-[10px] text-slate-400 font-bold uppercase">Powered by RestaurantOS</p>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -359,7 +449,7 @@ const SettingsPage: React.FC = () => {
                             <div className="p-4 space-y-4">
                                 <div className="bg-slate-900 border border-white/5 p-4 rounded-xl -mt-10 relative z-10 shadow-lg">
                                     <h4 className="text-[10px] font-black uppercase text-slate-500 mb-2">About Us</h4>
-                                    <p className="text-[10px] text-slate-400 line-clamp-3 leading-relaxed">{formState.about || 'A beautiful story about your restaurant in Nanded...'}</p>
+                                    <p className="text-[10px] text-slate-400 line-clamp-3 leading-relaxed">{formState.about || 'A beautiful story about your restaurant...'}</p>
                                 </div>
 
                                 <div className="space-y-3">

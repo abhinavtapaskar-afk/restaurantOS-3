@@ -5,7 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Order, OrderStatus, Restaurant } from '../../types';
 import { cn, safeParse } from '../../lib/utils';
 import Modal from '../ui/Modal';
-import { Eye, MapPin, Phone, Navigation, ShoppingCart, Banknote, CreditCard, ChevronDown, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Eye, MapPin, Phone, Navigation, ShoppingCart, Banknote, CreditCard, ChevronDown, RefreshCw, CheckCircle2, Zap } from 'lucide-react';
 
 const STATUS_OPTIONS: { value: OrderStatus; label: string; color: string }[] = [
     { value: 'pending', label: 'Pending', color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' },
@@ -19,6 +19,13 @@ const STATUS_OPTIONS: { value: OrderStatus; label: string; color: string }[] = [
 const getStatusConfig = (status: OrderStatus) => {
     return STATUS_OPTIONS.find(opt => opt.value === status) || STATUS_OPTIONS[0];
 };
+
+const TableBadge: React.FC<{ number: number }> = ({ number }) => (
+    <div className="flex items-center gap-1.5 bg-indigo-600 text-cyan-100 px-2.5 py-1 rounded-lg shadow-lg border border-indigo-400/30">
+        <Zap size={10} className="fill-cyan-100" />
+        <span className="text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Table {number.toString().padStart(2, '0')}</span>
+    </div>
+);
 
 const StatusDropdown: React.FC<{ status: OrderStatus, isUpdating?: boolean, onUpdate: (status: OrderStatus) => void }> = ({ status, isUpdating, onUpdate }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -79,9 +86,12 @@ const OrderDetailsModal: React.FC<{ order: Order, isUpdating: boolean, onClose: 
         <Modal isOpen={!!order} onClose={onClose} title={`Order: ${order?.id?.substring(0, 8).toUpperCase()}`}>
             <div className="space-y-6">
                 <div className="flex justify-between items-start">
-                    <div>
+                    <div className="flex flex-col gap-2">
                         <h4 className="font-black text-[10px] uppercase tracking-widest text-slate-500 mb-1">Status Control</h4>
-                        <StatusDropdown status={order.status} isUpdating={isUpdating} onUpdate={onStatusUpdate} />
+                        <div className="flex items-center gap-3">
+                            <StatusDropdown status={order.status} isUpdating={isUpdating} onUpdate={onStatusUpdate} />
+                            {order.table_number && <TableBadge number={order.table_number} />}
+                        </div>
                     </div>
                     <div className="text-right">
                          <h4 className="font-black text-[10px] uppercase tracking-widest text-slate-500 mb-1">Order Time</h4>
@@ -98,8 +108,8 @@ const OrderDetailsModal: React.FC<{ order: Order, isUpdating: boolean, onClose: 
                         </a>
                     </p>
                     <p className="flex items-start gap-2">
-                        <span className="text-slate-500 w-16 font-bold uppercase text-[10px] mt-0.5">Address:</span> 
-                        <span className="text-white flex-1 font-medium">{order?.customer_address || 'No address provided'}</span>
+                        <span className="text-slate-500 w-16 font-bold uppercase text-[10px] mt-0.5">Note:</span> 
+                        <span className="text-white flex-1 font-medium">{order?.customer_address || 'No notes provided'}</span>
                     </p>
                     <p className="flex items-center gap-2">
                         <span className="text-slate-500 w-16 font-bold uppercase text-[10px]">Payment:</span> 
@@ -109,7 +119,7 @@ const OrderDetailsModal: React.FC<{ order: Order, isUpdating: boolean, onClose: 
                     </p>
                 </div>
 
-                {mapsUrl && (
+                {!order.table_number && mapsUrl && (
                     <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
                         <div className="flex items-center justify-between">
                             <div>
@@ -283,8 +293,13 @@ const OrdersPage: React.FC = () => {
                             {orders.map((order) => (
                                 <tr key={order.id} className="hover:bg-white/[0.02] transition-colors group">
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-xs font-mono font-bold text-slate-400">#{order.id.substring(0, 8).toUpperCase()}</div>
-                                        <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter mt-1">{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                        <div className="flex items-center gap-3">
+                                            <div>
+                                                <div className="text-xs font-mono font-bold text-slate-400">#{order.id.substring(0, 8).toUpperCase()}</div>
+                                                <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter mt-1">{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                            </div>
+                                            {order.table_number && <TableBadge number={order.table_number} />}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm font-black text-white">{order.customer_name || 'Guest User'}</div>
