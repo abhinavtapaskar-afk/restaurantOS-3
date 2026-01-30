@@ -5,7 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Order, OrderStatus, Restaurant } from '../../types';
 import { cn, safeParse } from '../../lib/utils';
 import Modal from '../ui/Modal';
-import { Eye, MapPin, Phone, Navigation, ShoppingCart, Banknote, CreditCard, ChevronDown, RefreshCw } from 'lucide-react';
+import { Eye, MapPin, Phone, Navigation, ShoppingCart, Banknote, CreditCard, ChevronDown, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 const STATUS_OPTIONS: { value: OrderStatus; label: string; color: string }[] = [
     { value: 'pending', label: 'Pending', color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' },
@@ -20,7 +20,7 @@ const getStatusConfig = (status: OrderStatus) => {
     return STATUS_OPTIONS.find(opt => opt.value === status) || STATUS_OPTIONS[0];
 };
 
-const StatusDropdown: React.FC<{ status: OrderStatus, onUpdate: (status: OrderStatus) => void }> = ({ status, onUpdate }) => {
+const StatusDropdown: React.FC<{ status: OrderStatus, isUpdating?: boolean, onUpdate: (status: OrderStatus) => void }> = ({ status, isUpdating, onUpdate }) => {
     const [isOpen, setIsOpen] = useState(false);
     const config = getStatusConfig(status);
 
@@ -28,13 +28,18 @@ const StatusDropdown: React.FC<{ status: OrderStatus, onUpdate: (status: OrderSt
         <div className="relative inline-block text-left">
             <button 
                 type="button"
+                disabled={isUpdating}
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsOpen(!isOpen); }}
-                className={cn("px-3 py-1.5 inline-flex items-center gap-2 text-[10px] uppercase font-black rounded-full border transition-all hover:scale-105 active:scale-95", config.color)}
+                className={cn(
+                    "px-3 py-1.5 inline-flex items-center gap-2 text-[10px] uppercase font-black rounded-full border transition-all",
+                    isUpdating ? "opacity-50 cursor-not-allowed bg-slate-800 border-slate-700 text-slate-500" : config.color,
+                    !isUpdating && "hover:scale-105 active:scale-95"
+                )}
             >
-                {config.label}
-                <ChevronDown size={12} className={cn("transition-transform", isOpen ? "rotate-180" : "")} />
+                {isUpdating ? <RefreshCw size={12} className="animate-spin" /> : config.label}
+                {!isUpdating && <ChevronDown size={12} className={cn("transition-transform", isOpen ? "rotate-180" : "")} />}
             </button>
-            {isOpen && (
+            {isOpen && !isUpdating && (
                 <>
                     <div className="fixed inset-0 z-[60]" onClick={() => setIsOpen(false)} />
                     <div className="absolute left-0 mt-2 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-[70] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -45,7 +50,6 @@ const StatusDropdown: React.FC<{ status: OrderStatus, onUpdate: (status: OrderSt
                                 onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    console.log(`[StatusDropdown] Selecting: ${opt.value}`);
                                     onUpdate(opt.value);
                                     setIsOpen(false);
                                 }}
@@ -64,7 +68,7 @@ const StatusDropdown: React.FC<{ status: OrderStatus, onUpdate: (status: OrderSt
     );
 };
 
-const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void, onStatusUpdate: (status: OrderStatus) => void }> = ({ order, onClose, onStatusUpdate }) => {
+const OrderDetailsModal: React.FC<{ order: Order, isUpdating: boolean, onClose: () => void, onStatusUpdate: (status: OrderStatus) => void }> = ({ order, isUpdating, onClose, onStatusUpdate }) => {
     const mapsUrl = order?.latitude && order?.longitude 
         ? `https://www.google.com/maps/search/?api=1&query=${order.latitude},${order.longitude}`
         : null;
@@ -77,7 +81,7 @@ const OrderDetailsModal: React.FC<{ order: Order, onClose: () => void, onStatusU
                 <div className="flex justify-between items-start">
                     <div>
                         <h4 className="font-black text-[10px] uppercase tracking-widest text-slate-500 mb-1">Status Control</h4>
-                        <StatusDropdown status={order.status} onUpdate={onStatusUpdate} />
+                        <StatusDropdown status={order.status} isUpdating={isUpdating} onUpdate={onStatusUpdate} />
                     </div>
                     <div className="text-right">
                          <h4 className="font-black text-[10px] uppercase tracking-widest text-slate-500 mb-1">Order Time</h4>
@@ -156,6 +160,7 @@ const OrdersPage: React.FC = () => {
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 
     const fetchOrders = useCallback(async (restaurantId: string, silent = false) => {
         if (!silent) setLoading(true);
@@ -203,9 +208,11 @@ const OrdersPage: React.FC = () => {
     }, [restaurant, fetchOrders]);
 
     const handleStatusUpdate = async (id: string, status: OrderStatus) => {
-        console.log(`[OrdersPage] Updating Order ${id} to status: ${status}`);
+        console.log(`[OrdersPage] Initiating status change for ${id} to ${status}`);
+        setUpdatingOrderId(id);
         
         // Optimistic UI update
+        const previousOrders = [...orders];
         setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
         if (selectedOrder && selectedOrder.id === id) {
             setSelectedOrder({ ...selectedOrder, status });
@@ -214,16 +221,21 @@ const OrdersPage: React.FC = () => {
         try {
             const { error } = await supabase
                 .from('orders')
-                .update({ status: status }) // Explicitly using key:value
+                .update({ status: status }) 
                 .eq('id', id);
             
             if (error) throw error;
-            console.log(`[OrdersPage] Successfully updated status to ${status}`);
+            console.log(`[OrdersPage] Command accepted: Order ${id} is now ${status}`);
         } catch (err: any) {
-            console.error('[OrdersPage] Status update failed:', err);
-            alert(`Failed to update status to ${status}: ${err.message}`);
-            // Revert on error
-            fetchOrders(restaurant?.id || '');
+            console.error('[OrdersPage] Update rejected by backend:', err);
+            // Revert on error without alert
+            setOrders(previousOrders);
+            if (selectedOrder && selectedOrder.id === id) {
+                const prev = previousOrders.find(o => o.id === id);
+                if (prev) setSelectedOrder(prev);
+            }
+        } finally {
+            setUpdatingOrderId(null);
         }
     };
 
@@ -248,10 +260,7 @@ const OrdersPage: React.FC = () => {
                         </div>
                     )}
                     <div className="flex items-center gap-2 text-[10px] font-black uppercase bg-emerald-600 text-white px-4 py-2 rounded-full shadow-glow-emerald">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                        </span>
+                        <CheckCircle2 size={12} className="text-white" />
                         System Online
                     </div>
                 </div>
@@ -292,6 +301,7 @@ const OrdersPage: React.FC = () => {
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <StatusDropdown 
                                             status={order.status} 
+                                            isUpdating={updatingOrderId === order.id}
                                             onUpdate={(newStatus) => handleStatusUpdate(order.id, newStatus)} 
                                         />
                                     </td>
@@ -325,6 +335,7 @@ const OrdersPage: React.FC = () => {
             {selectedOrder && (
                 <OrderDetailsModal 
                     order={selectedOrder} 
+                    isUpdating={updatingOrderId === selectedOrder.id}
                     onClose={() => setSelectedOrder(null)} 
                     onStatusUpdate={(newStatus) => handleStatusUpdate(selectedOrder.id, newStatus)}
                 />
