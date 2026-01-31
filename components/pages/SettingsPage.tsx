@@ -6,6 +6,7 @@ import { Restaurant } from '../../types';
 import { cn } from '../../lib/utils';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import { QRCodeCanvas } from 'qrcode.react';
 import { 
     Check, 
     Smartphone, 
@@ -22,7 +23,8 @@ import {
     QrCode,
     FileDown,
     Table as TableIcon,
-    Loader2
+    Loader2,
+    Zap
 } from 'lucide-react';
 
 export const fonts = [
@@ -39,6 +41,7 @@ const SettingsPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [pdfGenerating, setPdfGenerating] = useState(false);
+    const [showPdfSource, setShowPdfSource] = useState(false);
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const pdfSourceRef = useRef<HTMLDivElement>(null);
@@ -177,40 +180,42 @@ const SettingsPage: React.FC = () => {
     };
 
     const handleDownloadPDF = async () => {
-        if (!pdfSourceRef.current) return;
         setPdfGenerating(true);
-        try {
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const source = pdfSourceRef.current;
-            
-            // To ensure html2canvas works with off-screen elements, we temporarily make it visible but transparent
-            source.classList.remove('hidden');
-            source.style.opacity = '0';
-            source.style.position = 'absolute';
-            source.style.top = '-9999px';
+        setShowPdfSource(true);
+        console.log('[PDF] Generation sequence started...');
 
-            const canvas = await html2canvas(source, {
-                scale: 3, // High resolution for QR codes
+        // Wait for React to paint the hidden template and QR canvases to settle
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        try {
+            if (!pdfSourceRef.current) {
+                throw new Error('PDF source container not found in DOM');
+            }
+
+            console.log('[PDF] Capturing DOM with html2canvas...');
+            const canvas = await html2canvas(pdfSourceRef.current, {
+                scale: 2, // High resolution (3 is sometimes too much for memory)
                 useCORS: true,
                 logging: false,
                 backgroundColor: '#ffffff'
             });
 
+            console.log('[PDF] Processing image data into jsPDF...');
             const imgData = canvas.toDataURL('image/png');
-            const imgProps = pdf.getImageProperties(imgData);
+            const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
             
             pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
             pdf.save(`${formState.slug}-table-qrs.pdf`);
-
-            source.classList.add('hidden');
-            source.style.opacity = '1';
-        } catch (err) {
-            console.error('[PDF Generation Error]:', err);
-            alert('Failed to generate PDF. Please try again.');
+            
+            console.log('[PDF] Generation successful!');
+        } catch (err: any) {
+            console.error('[PDF] Generation Failure:', err.message || err);
+            alert(`Error generating PDF: ${err.message || 'Unknown error'}`);
         } finally {
             setPdfGenerating(false);
+            setShowPdfSource(false);
         }
     };
 
@@ -273,7 +278,7 @@ const SettingsPage: React.FC = () => {
                                     className="flex items-center gap-2 text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 transition-colors disabled:opacity-50"
                                 >
                                     {pdfGenerating ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
-                                    {pdfGenerating ? 'Generating PDF...' : 'Download QR PDF'}
+                                    {pdfGenerating ? 'Syncing & Generating...' : 'Download QR PDF'}
                                 </button>
                             )}
                         </div>
@@ -288,12 +293,10 @@ const SettingsPage: React.FC = () => {
                                     {Array.from({ length: formState.total_tables }).map((_, i) => {
                                         const tableNum = i + 1;
                                         const qrUrl = `${publicBaseUrl}?table=${tableNum}`;
-                                        // High contrast QR for dashboard preview
-                                        const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrUrl)}&bgcolor=ffffff&color=000000&margin=10`;
                                         return (
                                             <div key={tableNum} className="bg-slate-950/50 p-3 rounded-xl border border-white/5 text-center group">
-                                                <div className="aspect-square bg-white rounded-lg p-1 mb-2">
-                                                    <img src={qrImage} alt={`Table ${tableNum}`} className="w-full h-full" />
+                                                <div className="aspect-square bg-white rounded-lg p-1.5 mb-2 flex items-center justify-center">
+                                                    <QRCodeCanvas value={qrUrl} size={100} level="H" />
                                                 </div>
                                                 <span className="text-[10px] font-black uppercase text-slate-500">Table {tableNum.toString().padStart(2, '0')}</span>
                                             </div>
@@ -310,29 +313,47 @@ const SettingsPage: React.FC = () => {
                     </div>
 
                     {/* HIDDEN PDF SOURCE VIEW - Specifically styled for PDF export */}
-                    <div className="hidden">
-                        <div ref={pdfSourceRef} className="bg-white p-10 w-[800px]">
-                            <div className="grid grid-cols-2 gap-x-12 gap-y-16">
-                                {Array.from({ length: formState.total_tables }).map((_, i) => {
-                                    const tableNum = i + 1;
-                                    const qrUrl = `${publicBaseUrl}?table=${tableNum}`;
-                                    // High res, high contrast for print
-                                    const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrUrl)}&bgcolor=ffffff&color=000000&margin=0`;
-                                    return (
-                                        <div key={tableNum} className="border-[6px] border-[#4f46e5] rounded-[2.5rem] p-12 text-center flex flex-col items-center shadow-sm">
-                                            <h2 className="text-3xl font-black text-slate-900 mb-2 uppercase tracking-tight">{formState.name}</h2>
-                                            <p className="text-slate-500 font-black uppercase text-sm mb-10 tracking-[0.2em]">Scan to Order & Pay</p>
-                                            <div className="w-64 h-64 mb-10 p-2 bg-white flex items-center justify-center">
-                                                <img src={qrImage} className="w-full h-full" alt={`QR Table ${tableNum}`} crossOrigin="anonymous" />
-                                            </div>
-                                            <div className="bg-[#4f46e5] text-white px-10 py-4 rounded-2xl shadow-lg">
-                                                <span className="text-3xl font-black uppercase tracking-[0.2em]">Table {tableNum.toString().padStart(2, '0')}</span>
-                                            </div>
-                                            <p className="mt-10 text-[10px] text-slate-400 font-black uppercase tracking-widest">Digital Hospitality by RestaurantOS</p>
+                    <div 
+                        ref={pdfSourceRef} 
+                        className={cn(
+                            "fixed top-0 left-0 bg-white p-10 w-[210mm] z-[-100]", 
+                            showPdfSource ? "opacity-100 block" : "opacity-0 pointer-events-none"
+                        )}
+                        style={{ position: 'fixed', top: '-10000px', left: '-10000px' }}
+                    >
+                        <div className="grid grid-cols-2 gap-x-10 gap-y-14 p-10">
+                            {Array.from({ length: formState.total_tables }).map((_, i) => {
+                                const tableNum = i + 1;
+                                const qrUrl = `${publicBaseUrl}?table=${tableNum}`;
+                                return (
+                                    <div key={tableNum} className="border-[6px] border-[#4f46e5] rounded-[3rem] p-12 text-center flex flex-col items-center bg-white shadow-xl">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <Zap size={24} className="text-[#4f46e5] fill-[#4f46e5]" />
+                                            <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight">Mystic Falls</h2>
                                         </div>
-                                    );
-                                })}
-                            </div>
+                                        <p className="text-[#4f46e5] font-black uppercase text-sm mb-10 tracking-[0.2em]">{formState.name}</p>
+                                        
+                                        <div className="w-64 h-64 mb-10 p-4 bg-white border-2 border-slate-100 rounded-3xl flex items-center justify-center shadow-inner">
+                                            <QRCodeCanvas 
+                                                value={qrUrl} 
+                                                size={256} 
+                                                level="H" 
+                                                includeMargin={false}
+                                                style={{ width: '100%', height: '100%' }}
+                                            />
+                                        </div>
+                                        
+                                        <div className="bg-[#4f46e5] text-white px-12 py-5 rounded-[2rem] shadow-2xl transform hover:scale-105 transition-transform">
+                                            <span className="text-4xl font-black uppercase tracking-[0.1em]">Table {tableNum.toString().padStart(2, '0')}</span>
+                                        </div>
+                                        
+                                        <div className="mt-10 flex flex-col gap-1 items-center">
+                                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.3em]">Scan to Order & Pay</p>
+                                            <p className="text-[8px] text-slate-300 font-black uppercase tracking-widest">Powered by RestaurantOS</p>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
 
