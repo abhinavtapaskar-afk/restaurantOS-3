@@ -182,37 +182,52 @@ const SettingsPage: React.FC = () => {
     const handleDownloadPDF = async () => {
         setPdfGenerating(true);
         setShowPdfSource(true);
-        console.log('[PDF] Generation sequence started...');
+        console.log('[PDF] Multipage generation started...');
 
-        // Wait for React to paint the hidden template and QR canvases to settle
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // Wait for React to render all virtual pages and QR canvases to stabilize
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         try {
             if (!pdfSourceRef.current) {
-                throw new Error('PDF source container not found in DOM');
+                throw new Error('PDF source container not found');
             }
 
-            console.log('[PDF] Capturing DOM with html2canvas...');
-            const canvas = await html2canvas(pdfSourceRef.current, {
-                scale: 2, // High resolution (3 is sometimes too much for memory)
-                useCORS: true,
-                logging: false,
-                backgroundColor: '#ffffff'
-            });
+            const pageElements = pdfSourceRef.current.querySelectorAll('.pdf-page');
+            if (pageElements.length === 0) {
+                throw new Error('No printable pages generated');
+            }
 
-            console.log('[PDF] Processing image data into jsPDF...');
-            const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-            
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-            pdf.save(`${formState.slug}-table-qrs.pdf`);
-            
-            console.log('[PDF] Generation successful!');
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+
+            for (let i = 0; i < pageElements.length; i++) {
+                const pageEl = pageElements[i] as HTMLElement;
+                console.log(`[PDF] Capturing Page ${i + 1}/${pageElements.length}...`);
+                
+                const canvas = await html2canvas(pageEl, {
+                    scale: 2.5, // Perfect balance between resolution and memory
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    logging: false
+                });
+
+                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                
+                // Add the captured canvas to the current PDF page
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+
+                // Add a new page if this wasn't the last one
+                if (i < pageElements.length - 1) {
+                    pdf.addPage();
+                }
+            }
+
+            pdf.save(`${formState.slug}-HQ-QR-Codes.pdf`);
+            console.log('[PDF] Distribution package ready.');
         } catch (err: any) {
-            console.error('[PDF] Generation Failure:', err.message || err);
-            alert(`Error generating PDF: ${err.message || 'Unknown error'}`);
+            console.error('[PDF] Critical Failure:', err);
+            alert(`PDF Generation failed: ${err.message}`);
         } finally {
             setPdfGenerating(false);
             setShowPdfSource(false);
@@ -224,8 +239,14 @@ const SettingsPage: React.FC = () => {
     const selectedFont = fonts.find(f => f.name === formState.font);
     const publicBaseUrl = `${window.location.origin}${window.location.pathname}#/menu/${formState.slug}`;
 
+    // Helper to chunk tables into pairs for 2-per-page layout
+    const tableChunks = [];
+    for (let i = 0; i < formState.total_tables; i += 2) {
+        tableChunks.push(Array.from({ length: formState.total_tables }).slice(i, i + 2).map((_, idx) => i + idx + 1));
+    }
+
     return (
-        <div className="flex flex-col xl:flex-row gap-8 h-full max-w-[1600px] mx-auto">
+        <div className="flex flex-col xl:flex-row gap-8 h-full max-w-[1600px] mx-auto font-sans">
             {/* --- STUDIO CONTROLS --- */}
             <div className="flex-1 space-y-8 pb-12">
                 <div className="flex justify-between items-end">
@@ -250,19 +271,19 @@ const SettingsPage: React.FC = () => {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Restaurant Name</label>
-                                <input id="name" value={formState.name} onChange={handleInputChange} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white focus:border-emerald-500 outline-none" />
+                                <input id="name" value={formState.name} onChange={handleInputChange} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white focus:border-emerald-500 outline-none font-bold" />
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Public Slug / Subdomain</label>
-                                <input id="slug" value={formState.slug} onChange={handleInputChange} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-emerald-400 font-mono text-sm focus:border-emerald-500 outline-none" />
+                                <input id="slug" value={formState.slug} onChange={handleInputChange} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-emerald-400 font-mono text-sm focus:border-emerald-500 outline-none font-bold" />
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">UPI ID (Business)</label>
-                                <input id="upi_id" value={formState.upi_id} onChange={handleInputChange} placeholder="business@upi" className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white focus:border-emerald-500 outline-none" />
+                                <input id="upi_id" value={formState.upi_id} onChange={handleInputChange} placeholder="business@upi" className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white focus:border-emerald-500 outline-none font-bold" />
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">City</label>
-                                <input id="city" value={formState.city} onChange={handleInputChange} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white focus:border-emerald-500 outline-none" />
+                                <input id="city" value={formState.city} onChange={handleInputChange} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white focus:border-emerald-500 outline-none font-bold" />
                             </div>
                         </div>
                     </div>
@@ -278,14 +299,14 @@ const SettingsPage: React.FC = () => {
                                     className="flex items-center gap-2 text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 transition-colors disabled:opacity-50"
                                 >
                                     {pdfGenerating ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
-                                    {pdfGenerating ? 'Syncing & Generating...' : 'Download QR PDF'}
+                                    {pdfGenerating ? 'Preparing HQ PDF...' : 'Download QR PDF (HQ)'}
                                 </button>
                             )}
                         </div>
                         <div className="space-y-6">
                             <div className="space-y-1">
-                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Number of Tables in Restaurant</label>
-                                <input id="total_tables" type="number" min="0" max="100" value={formState.total_tables} onChange={handleInputChange} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white focus:border-indigo-500 outline-none" />
+                                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Number of Tables</label>
+                                <input id="total_tables" type="number" min="0" max="100" value={formState.total_tables} onChange={handleInputChange} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white focus:border-indigo-500 outline-none font-bold" />
                             </div>
 
                             {formState.total_tables > 0 ? (
@@ -306,55 +327,67 @@ const SettingsPage: React.FC = () => {
                             ) : (
                                 <div className="py-8 text-center bg-slate-950/30 rounded-xl border border-dashed border-white/10">
                                     <TableIcon size={32} className="text-slate-700 mx-auto mb-2 opacity-20" />
-                                    <p className="text-xs text-slate-500 font-bold uppercase">No tables configured.</p>
+                                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Configure tables to generate codes</p>
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* HIDDEN PDF SOURCE VIEW - Specifically styled for PDF export */}
+                    {/* HIDDEN PDF TEMPLATE - Professional Multi-Page A4 Structure */}
                     <div 
                         ref={pdfSourceRef} 
                         className={cn(
-                            "fixed top-0 left-0 bg-white p-10 w-[210mm] z-[-100]", 
-                            showPdfSource ? "opacity-100 block" : "opacity-0 pointer-events-none"
+                            "fixed top-0 left-0 z-[-100]", 
+                            showPdfSource ? "block" : "hidden pointer-events-none"
                         )}
-                        style={{ position: 'fixed', top: '-10000px', left: '-10000px' }}
+                        style={{ position: 'fixed', top: '-20000px', left: '-20000px' }}
                     >
-                        <div className="grid grid-cols-2 gap-x-10 gap-y-14 p-10">
-                            {Array.from({ length: formState.total_tables }).map((_, i) => {
-                                const tableNum = i + 1;
-                                const qrUrl = `${publicBaseUrl}?table=${tableNum}`;
-                                return (
-                                    <div key={tableNum} className="border-[6px] border-[#4f46e5] rounded-[3rem] p-12 text-center flex flex-col items-center bg-white shadow-xl">
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <Zap size={24} className="text-[#4f46e5] fill-[#4f46e5]" />
-                                            <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tight">Mystic Falls</h2>
+                        {tableChunks.map((chunk, pageIndex) => (
+                            <div 
+                                key={pageIndex} 
+                                className="pdf-page bg-white w-[210mm] h-[297mm] flex flex-row items-center justify-center px-[15mm] py-[20mm] gap-[10mm]"
+                                style={{ pageBreakAfter: 'always' }}
+                            >
+                                {chunk.map((tableNum) => {
+                                    const qrUrl = `${publicBaseUrl}?table=${tableNum}`;
+                                    return (
+                                        <div 
+                                            key={tableNum} 
+                                            className="w-[85mm] h-[250mm] border-[5px] border-[#4f46e5] rounded-[3rem] flex flex-col items-center justify-between p-10 bg-white"
+                                        >
+                                            <div className="text-center w-full">
+                                                <div className="flex items-center justify-center gap-3 mb-2">
+                                                    <Zap size={32} className="text-[#4f46e5] fill-[#4f46e5]" />
+                                                    <h2 className="text-4xl font-black text-slate-900 uppercase tracking-tight">Mystic Falls</h2>
+                                                </div>
+                                                <p className="text-[#4f46e5] font-black uppercase text-sm tracking-[0.2em] mb-12">{formState.name}</p>
+                                            </div>
+                                            
+                                            <div className="w-[65mm] h-[65mm] p-6 bg-white border-2 border-slate-100 rounded-[2.5rem] flex items-center justify-center shadow-inner">
+                                                <QRCodeCanvas 
+                                                    value={qrUrl} 
+                                                    size={400} 
+                                                    level="H" 
+                                                    style={{ width: '100%', height: '100%' }}
+                                                />
+                                            </div>
+                                            
+                                            <div className="flex flex-col items-center gap-6 w-full">
+                                                <div className="bg-[#4f46e5] text-white px-12 py-6 rounded-[2.5rem] shadow-2xl w-full text-center">
+                                                    <span className="text-5xl font-black uppercase tracking-[0.1em]">Table {tableNum.toString().padStart(2, '0')}</span>
+                                                </div>
+                                                <div className="flex flex-col gap-1 items-center">
+                                                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.4em]">Scan to Order & Pay</p>
+                                                    <p className="text-[9px] text-slate-300 font-black uppercase tracking-widest">Digital Hub by RestaurantOS</p>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <p className="text-[#4f46e5] font-black uppercase text-sm mb-10 tracking-[0.2em]">{formState.name}</p>
-                                        
-                                        <div className="w-64 h-64 mb-10 p-4 bg-white border-2 border-slate-100 rounded-3xl flex items-center justify-center shadow-inner">
-                                            <QRCodeCanvas 
-                                                value={qrUrl} 
-                                                size={256} 
-                                                level="H" 
-                                                includeMargin={false}
-                                                style={{ width: '100%', height: '100%' }}
-                                            />
-                                        </div>
-                                        
-                                        <div className="bg-[#4f46e5] text-white px-12 py-5 rounded-[2rem] shadow-2xl transform hover:scale-105 transition-transform">
-                                            <span className="text-4xl font-black uppercase tracking-[0.1em]">Table {tableNum.toString().padStart(2, '0')}</span>
-                                        </div>
-                                        
-                                        <div className="mt-10 flex flex-col gap-1 items-center">
-                                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.3em]">Scan to Order & Pay</p>
-                                            <p className="text-[8px] text-slate-300 font-black uppercase tracking-widest">Powered by RestaurantOS</p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                                    );
+                                })}
+                                {/* Placeholder for empty half on odd count pages */}
+                                {chunk.length === 1 && <div className="w-[85mm] h-[250mm] invisible" />}
+                            </div>
+                        ))}
                     </div>
 
                     {/* Section: Design Lab */}
@@ -366,14 +399,14 @@ const SettingsPage: React.FC = () => {
                                     <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Primary Theme Color</label>
                                     <div className="flex items-center gap-3">
                                         <input type="color" id="theme_color" value={formState.theme_color} onChange={handleInputChange} className="w-12 h-12 rounded-lg cursor-pointer bg-transparent border-none" />
-                                        <input type="text" value={formState.theme_color} onChange={handleInputChange} id="theme_color" className="bg-slate-950/50 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-slate-300 font-mono w-24" />
+                                        <input type="text" value={formState.theme_color} onChange={handleInputChange} id="theme_color" className="bg-slate-950/50 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-slate-300 font-mono w-24 font-bold" />
                                     </div>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Secondary Blend Color</label>
                                     <div className="flex items-center gap-3">
                                         <input type="color" id="secondary_theme_color" value={formState.secondary_theme_color} onChange={handleInputChange} className="w-12 h-12 rounded-lg cursor-pointer bg-transparent border-none" />
-                                        <input type="text" value={formState.secondary_theme_color} onChange={handleInputChange} id="secondary_theme_color" className="bg-slate-950/50 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-slate-300 font-mono w-24" />
+                                        <input type="text" value={formState.secondary_theme_color} onChange={handleInputChange} id="secondary_theme_color" className="bg-slate-950/50 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-slate-300 font-mono w-24 font-bold" />
                                     </div>
                                 </div>
                             </div>
@@ -409,7 +442,7 @@ const SettingsPage: React.FC = () => {
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-white font-bold flex items-center gap-2"><Layout size={18} className="text-amber-500"/> Content & Operations</h3>
                             <label className="flex items-center gap-3 cursor-pointer group">
-                                <span className={cn("text-[10px] font-black uppercase tracking-wider transition-colors", formState.is_accepting_orders ? "text-emerald-500" : "text-red-500")}>
+                                <span className={cn("text-[10px] font-black uppercase tracking-wider transition-colors font-bold", formState.is_accepting_orders ? "text-emerald-500" : "text-red-500")}>
                                     {formState.is_accepting_orders ? 'Orders Active' : 'Kitchen Closed'}
                                 </span>
                                 <div className="relative">
@@ -422,7 +455,7 @@ const SettingsPage: React.FC = () => {
                         <div className="space-y-4">
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Hero Headline</label>
-                                <input id="hero_title" value={formState.hero_title} onChange={handleInputChange} placeholder="e.g., Best Biryani in Nanded" className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white outline-none" />
+                                <input id="hero_title" value={formState.hero_title} onChange={handleInputChange} placeholder="e.g., Best Biryani in Nanded" className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white outline-none font-bold" />
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Hero Image</label>
@@ -439,7 +472,7 @@ const SettingsPage: React.FC = () => {
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider">About Us Narration</label>
-                                <textarea id="about" value={formState.about} onChange={handleInputChange} rows={3} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white outline-none resize-none" />
+                                <textarea id="about" value={formState.about} onChange={handleInputChange} rows={3} className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white outline-none resize-none font-bold leading-relaxed" />
                             </div>
                         </div>
                     </div>
@@ -450,11 +483,11 @@ const SettingsPage: React.FC = () => {
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1"><Instagram size={10}/> Instagram</label>
-                                <input id="instagram_url" value={formState.instagram_url} onChange={handleInputChange} placeholder="@profile" className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white outline-none" />
+                                <input id="instagram_url" value={formState.instagram_url} onChange={handleInputChange} placeholder="@profile" className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white outline-none font-bold" />
                             </div>
                             <div className="space-y-1">
                                 <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1"><MessageCircle size={10}/> WhatsApp Number</label>
-                                <input id="whatsapp_number" value={formState.whatsapp_number} onChange={handleInputChange} placeholder="91XXXXXXXXXX" className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white outline-none" />
+                                <input id="whatsapp_number" value={formState.whatsapp_number} onChange={handleInputChange} placeholder="91XXXXXXXXXX" className="w-full bg-slate-950/50 border border-white/5 rounded-lg px-4 py-2.5 text-white outline-none font-bold" />
                             </div>
                         </div>
                     </div>
