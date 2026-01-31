@@ -4,6 +4,8 @@ import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { Restaurant } from '../../types';
 import { cn } from '../../lib/utils';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { 
     Check, 
     Smartphone, 
@@ -18,8 +20,9 @@ import {
     Save,
     RefreshCw,
     QrCode,
-    Printer,
-    Table as TableIcon
+    FileDown,
+    Table as TableIcon,
+    Loader2
 } from 'lucide-react';
 
 export const fonts = [
@@ -35,9 +38,10 @@ const SettingsPage: React.FC = () => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [pdfGenerating, setPdfGenerating] = useState(false);
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-    const printRef = useRef<HTMLDivElement>(null);
+    const pdfSourceRef = useRef<HTMLDivElement>(null);
 
     const [formState, setFormState] = useState({
         name: '', city: 'Nanded', slug: '', address: '', phone: '', about: '',
@@ -172,21 +176,41 @@ const SettingsPage: React.FC = () => {
         }
     };
 
-    const handlePrint = () => {
-        const printContent = printRef.current;
-        const windowPrint = window.open('', '', 'width=900,height=650');
-        if (windowPrint && printContent) {
-            windowPrint.document.write('<html><head><title>Print QR Codes</title>');
-            windowPrint.document.write('<script src="https://cdn.tailwindcss.com"></script>');
-            windowPrint.document.write('</head><body class="bg-white p-10">');
-            windowPrint.document.write(printContent.innerHTML);
-            windowPrint.document.write('</body></html>');
-            windowPrint.document.close();
-            windowPrint.focus();
-            setTimeout(() => {
-                windowPrint.print();
-                windowPrint.close();
-            }, 500);
+    const handleDownloadPDF = async () => {
+        if (!pdfSourceRef.current) return;
+        setPdfGenerating(true);
+        try {
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const source = pdfSourceRef.current;
+            
+            // To ensure html2canvas works with off-screen elements, we temporarily make it visible but transparent
+            source.classList.remove('hidden');
+            source.style.opacity = '0';
+            source.style.position = 'absolute';
+            source.style.top = '-9999px';
+
+            const canvas = await html2canvas(source, {
+                scale: 3, // High resolution for QR codes
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff'
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            const imgProps = pdf.getImageProperties(imgData);
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save(`${formState.slug}-table-qrs.pdf`);
+
+            source.classList.add('hidden');
+            source.style.opacity = '1';
+        } catch (err) {
+            console.error('[PDF Generation Error]:', err);
+            alert('Failed to generate PDF. Please try again.');
+        } finally {
+            setPdfGenerating(false);
         }
     };
 
@@ -243,8 +267,13 @@ const SettingsPage: React.FC = () => {
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-white font-bold flex items-center gap-2"><QrCode size={18} className="text-indigo-500"/> Table QR Management</h3>
                             {formState.total_tables > 0 && (
-                                <button onClick={handlePrint} className="flex items-center gap-2 text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 transition-colors">
-                                    <Printer size={14} /> Print All QR Codes
+                                <button 
+                                    onClick={handleDownloadPDF} 
+                                    disabled={pdfGenerating}
+                                    className="flex items-center gap-2 text-[10px] font-black uppercase text-indigo-400 hover:text-indigo-300 transition-colors disabled:opacity-50"
+                                >
+                                    {pdfGenerating ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+                                    {pdfGenerating ? 'Generating PDF...' : 'Download QR PDF'}
                                 </button>
                             )}
                         </div>
@@ -259,7 +288,8 @@ const SettingsPage: React.FC = () => {
                                     {Array.from({ length: formState.total_tables }).map((_, i) => {
                                         const tableNum = i + 1;
                                         const qrUrl = `${publicBaseUrl}?table=${tableNum}`;
-                                        const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrUrl)}&bgcolor=0f172a&color=ffffff&margin=10`;
+                                        // High contrast QR for dashboard preview
+                                        const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrUrl)}&bgcolor=ffffff&color=000000&margin=10`;
                                         return (
                                             <div key={tableNum} className="bg-slate-950/50 p-3 rounded-xl border border-white/5 text-center group">
                                                 <div className="aspect-square bg-white rounded-lg p-1 mb-2">
@@ -279,23 +309,26 @@ const SettingsPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* HIDDEN PRINT VIEW */}
+                    {/* HIDDEN PDF SOURCE VIEW - Specifically styled for PDF export */}
                     <div className="hidden">
-                        <div ref={printRef}>
-                            <div className="grid grid-cols-2 gap-10">
+                        <div ref={pdfSourceRef} className="bg-white p-10 w-[800px]">
+                            <div className="grid grid-cols-2 gap-x-12 gap-y-16">
                                 {Array.from({ length: formState.total_tables }).map((_, i) => {
                                     const tableNum = i + 1;
                                     const qrUrl = `${publicBaseUrl}?table=${tableNum}`;
-                                    const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}`;
+                                    // High res, high contrast for print
+                                    const qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrUrl)}&bgcolor=ffffff&color=000000&margin=0`;
                                     return (
-                                        <div key={tableNum} className="border-4 border-indigo-600 rounded-[2rem] p-10 text-center flex flex-col items-center">
-                                            <h2 className="text-3xl font-black text-slate-900 mb-2">{formState.name}</h2>
-                                            <p className="text-slate-500 font-bold uppercase text-sm mb-6">Scan to Order & Pay</p>
-                                            <img src={qrImage} className="w-48 h-48 mb-6" alt={`QR Table ${tableNum}`} />
-                                            <div className="bg-indigo-600 text-white px-8 py-3 rounded-2xl">
-                                                <span className="text-2xl font-black uppercase tracking-widest">Table {tableNum.toString().padStart(2, '0')}</span>
+                                        <div key={tableNum} className="border-[6px] border-[#4f46e5] rounded-[2.5rem] p-12 text-center flex flex-col items-center shadow-sm">
+                                            <h2 className="text-3xl font-black text-slate-900 mb-2 uppercase tracking-tight">{formState.name}</h2>
+                                            <p className="text-slate-500 font-black uppercase text-sm mb-10 tracking-[0.2em]">Scan to Order & Pay</p>
+                                            <div className="w-64 h-64 mb-10 p-2 bg-white flex items-center justify-center">
+                                                <img src={qrImage} className="w-full h-full" alt={`QR Table ${tableNum}`} crossOrigin="anonymous" />
                                             </div>
-                                            <p className="mt-8 text-[10px] text-slate-400 font-bold uppercase">Powered by RestaurantOS</p>
+                                            <div className="bg-[#4f46e5] text-white px-10 py-4 rounded-2xl shadow-lg">
+                                                <span className="text-3xl font-black uppercase tracking-[0.2em]">Table {tableNum.toString().padStart(2, '0')}</span>
+                                            </div>
+                                            <p className="mt-10 text-[10px] text-slate-400 font-black uppercase tracking-widest">Digital Hospitality by RestaurantOS</p>
                                         </div>
                                     );
                                 })}
