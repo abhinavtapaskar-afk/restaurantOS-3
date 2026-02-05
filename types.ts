@@ -26,6 +26,24 @@ export interface Restaurant {
   total_tables?: number;
 }
 
+export interface Ingredient {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  current_stock: number;
+  unit: string;
+  cost_per_unit: number;
+  min_stock_alert?: number;
+}
+
+export interface RecipeItem {
+  id: string;
+  menu_item_id: string;
+  ingredient_id: string;
+  quantity: number;
+  ingredient?: Ingredient;
+}
+
 export interface MenuItem {
   id: string;
   restaurant_id: string;
@@ -35,6 +53,7 @@ export interface MenuItem {
   is_veg: boolean;
   image_url?: string;
   is_available: boolean;
+  recipe_items?: RecipeItem[];
 }
 
 export interface CartItem extends MenuItem {

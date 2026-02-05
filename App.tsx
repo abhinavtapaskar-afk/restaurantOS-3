@@ -9,6 +9,7 @@ import DashboardPage from './components/dashboard/DashboardPage';
 import SettingsPage from './components/pages/SettingsPage';
 import MenuPage from './components/dashboard/MenuPage';
 import OrdersPage from './components/dashboard/OrdersPage';
+import InventoryPage from './components/dashboard/InventoryPage';
 import AuthWrapper from './components/ui/AuthWrapper';
 import PublicMenuPage from './components/pages/PublicMenuPage';
 import ReviewsPage from './components/dashboard/ReviewsPage';
@@ -35,6 +36,7 @@ function App() {
             <Route path="settings" element={<SettingsPage />} />
             <Route path="menu" element={<MenuPage />} />
             <Route path="orders" element={<OrdersPage />} />
+            <Route path="inventory" element={<InventoryPage />} />
             <Route path="reviews" element={<ReviewsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" />} />
