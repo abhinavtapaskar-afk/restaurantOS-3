@@ -1,11 +1,27 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { Order, OrderStatus, Restaurant } from '../../types';
 import { cn, safeParse } from '../../lib/utils';
 import Modal from '../ui/Modal';
-import { Eye, MapPin, Phone, Navigation, ShoppingCart, Banknote, CreditCard, ChevronDown, RefreshCw, CheckCircle2, Zap } from 'lucide-react';
+import { 
+    Eye, 
+    MapPin, 
+    Phone, 
+    Navigation, 
+    ShoppingCart, 
+    Banknote, 
+    CreditCard, 
+    ChevronDown, 
+    RefreshCw, 
+    CheckCircle2, 
+    Zap,
+    Volume2,
+    VolumeX,
+    BellRing,
+    X
+} from 'lucide-react';
 
 const STATUS_OPTIONS: { value: OrderStatus; label: string; color: string }[] = [
     { value: 'pending', label: 'Pending', color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' },
@@ -171,6 +187,11 @@ const OrdersPage: React.FC = () => {
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [isSyncing, setIsSyncing] = useState(false);
     const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+    
+    // Notifications State
+    const [isMuted, setIsMuted] = useState(true);
+    const [toast, setToast] = useState<{ show: boolean; id: string | null } | null>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
     const fetchOrders = useCallback(async (restaurantId: string, silent = false) => {
         if (!silent) setLoading(true);
@@ -194,6 +215,11 @@ const OrdersPage: React.FC = () => {
         }
     }, []);
 
+    // Initialize Audio
+    useEffect(() => {
+        audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    }, []);
+
     useEffect(() => {
         if (!user) return;
         const init = async () => {
@@ -211,17 +237,27 @@ const OrdersPage: React.FC = () => {
         const channel = supabase.channel(`orders-live-hub-${restaurant.id}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `restaurant_id=eq.${restaurant.id}` }, (payload) => {
                 console.log('[OrdersPage] Realtime change detected:', payload.eventType);
+                
+                // If brand new order arrives
+                if (payload.eventType === 'INSERT') {
+                    // Trigger Audio
+                    if (!isMuted && audioRef.current) {
+                        audioRef.current.currentTime = 0;
+                        audioRef.current.play().catch(e => console.error('[Audio] Play blocked:', e));
+                    }
+                    // Trigger Visual Toast
+                    setToast({ show: true, id: payload.new.id });
+                    setTimeout(() => setToast(null), 5000);
+                }
+
                 fetchOrders(restaurant.id, true);
             })
             .subscribe();
         return () => { supabase.removeChannel(channel); }
-    }, [restaurant, fetchOrders]);
+    }, [restaurant, fetchOrders, isMuted]);
 
     const handleStatusUpdate = async (id: string, status: OrderStatus) => {
-        console.log(`[OrdersPage] Initiating status change for ${id} to ${status}`);
         setUpdatingOrderId(id);
-        
-        // Optimistic UI update
         const previousOrders = [...orders];
         setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
         if (selectedOrder && selectedOrder.id === id) {
@@ -229,16 +265,9 @@ const OrdersPage: React.FC = () => {
         }
         
         try {
-            const { error } = await supabase
-                .from('orders')
-                .update({ status: status }) 
-                .eq('id', id);
-            
+            const { error } = await supabase.from('orders').update({ status }).eq('id', id);
             if (error) throw error;
-            console.log(`[OrdersPage] Command accepted: Order ${id} is now ${status}`);
         } catch (err: any) {
-            console.error('[OrdersPage] Update rejected by backend:', err);
-            // Revert on error without alert
             setOrders(previousOrders);
             if (selectedOrder && selectedOrder.id === id) {
                 const prev = previousOrders.find(o => o.id === id);
@@ -257,13 +286,45 @@ const OrdersPage: React.FC = () => {
     );
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500 relative">
+            
+            {/* NEW ORDER TOAST (Electric Indigo) */}
+            {toast?.show && (
+                <div className="fixed top-24 right-8 z-[100] animate-in slide-in-from-right-full duration-500">
+                    <div className="bg-[#4f46e5] border-2 border-indigo-400/30 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-4 min-w-[300px] relative overflow-hidden group">
+                        <div className="absolute top-0 left-0 w-1 h-full bg-emerald-400 animate-pulse" />
+                        <div className="bg-white/10 p-3 rounded-xl">
+                            <BellRing className="text-emerald-400 animate-bounce" size={24} />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest opacity-70">New Activity Landing</p>
+                            <h4 className="text-sm font-black uppercase tracking-tight">Order #{toast.id?.substring(0, 8).toUpperCase()} Received!</h4>
+                        </div>
+                        <button onClick={() => setToast(null)} className="ml-auto text-white/50 hover:text-white transition-colors">
+                            <X size={16} />
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-4xl font-black text-white tracking-tighter">Live <span className="text-emerald-500 underline decoration-emerald-500/20">Orders</span></h1>
                     <p className="text-slate-500 font-bold text-xs uppercase tracking-[0.2em] mt-1">Real-time logistics control</p>
                 </div>
                 <div className="flex items-center gap-3">
+                    {/* Audio Toggle Control */}
+                    <button 
+                        onClick={() => setIsMuted(!isMuted)}
+                        className={cn(
+                            "flex items-center gap-2 text-[10px] font-black uppercase px-4 py-2 rounded-full transition-all border",
+                            isMuted ? "bg-slate-800 border-slate-700 text-slate-500 hover:text-white" : "bg-indigo-600/10 border-indigo-500/30 text-indigo-400 shadow-glow-indigo"
+                        )}
+                    >
+                        {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} className="animate-pulse" />}
+                        {isMuted ? 'Sound Off' : 'Alerts Active'}
+                    </button>
+
                     {isSyncing && (
                         <div className="flex items-center gap-2 text-[10px] font-black uppercase text-emerald-500 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
                             <RefreshCw size={12} className="animate-spin" /> Live Syncing
