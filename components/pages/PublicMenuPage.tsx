@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../services/supabase';
-import { Restaurant, MenuItem, CartItem, PaymentMethod, Ingredient } from '../../types';
+// Fix: Removed unused 'Ingredient' import which was causing an error as it's not defined in types.ts.
+import { Restaurant, MenuItem, CartItem, PaymentMethod } from '../../types';
 // Fix: Added Loader2 to imports
 import { Plus, Minus, ShoppingCart, X, MapPin, Phone, Navigation, CreditCard, Banknote, Bike, Instagram, MessageCircle, Utensils, Zap, AlertCircle, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -163,7 +163,8 @@ const PublicMenuPageContent: React.FC = () => {
                 setRestaurant(restaurantData);
                 const { data: menuData } = await supabase
                     .from('menu_items')
-                    .select('*, recipe_items(*, ingredient:ingredients(*))')
+                    // Fix: Changed query from `recipe_items(*, ingredient:ingredients(*))` to `menu_item_ingredients(*, inventory_item:inventory(*))` to align with the data model used in the rest of the app.
+                    .select('*, menu_item_ingredients(*, inventory_item:inventory(*))')
                     .eq('restaurant_id', restaurantData.id)
                     .eq('is_available', true);
                 if(menuData) setMenuItems(menuData);
@@ -188,9 +189,10 @@ const PublicMenuPageContent: React.FC = () => {
     }, {} as Record<string, MenuItem[]>);
 
     // Check if item is out of stock based on ingredients
+    // Fix: Updated logic to use `menu_item_ingredients` and `inventory_item` to correctly check stock levels, resolving the property access error on the MenuItem type.
     const isOutOfStock = (item: MenuItem) => {
-        if (!item.recipe_items || item.recipe_items.length === 0) return false;
-        return item.recipe_items.some(ri => !ri.ingredient || ri.ingredient.current_stock < ri.quantity);
+        if (!item.menu_item_ingredients || item.menu_item_ingredients.length === 0) return false;
+        return item.menu_item_ingredients.some(ri => !ri.inventory_item || ri.inventory_item.current_stock < ri.quantity);
     };
 
     return (

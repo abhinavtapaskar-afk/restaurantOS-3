@@ -27,17 +27,17 @@ CREATE TABLE IF NOT EXISTS restaurants (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- INGREDIENTS TABLE (MYSTIC WARDROBE)
-CREATE TABLE IF NOT EXISTS ingredients (
+-- INVENTORY TABLE (MYSTIC WARDROBE)
+CREATE TABLE IF NOT EXISTS inventory (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   restaurant_id UUID REFERENCES restaurants(id) ON DELETE CASCADE NOT NULL,
-  name TEXT NOT NULL,
+  item_name TEXT NOT NULL,
   current_stock NUMERIC NOT NULL DEFAULT 0,
   unit TEXT NOT NULL, -- e.g., kg, L, pcs, g, ml
-  cost_per_unit NUMERIC NOT NULL DEFAULT 0,
+  cost_price NUMERIC NOT NULL DEFAULT 0,
   min_stock_alert NUMERIC,
   created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(restaurant_id, name)
+  UNIQUE(restaurant_id, item_name)
 );
 
 -- MENU ITEMS TABLE
@@ -53,14 +53,14 @@ CREATE TABLE IF NOT EXISTS menu_items (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- RECIPE ITEMS TABLE (Link between Menu Items and Ingredients)
-CREATE TABLE IF NOT EXISTS recipe_items (
+-- MENU ITEM INGREDIENTS TABLE (Link between Menu Items and Inventory)
+CREATE TABLE IF NOT EXISTS menu_item_ingredients (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   menu_item_id UUID REFERENCES menu_items(id) ON DELETE CASCADE NOT NULL,
-  ingredient_id UUID REFERENCES ingredients(id) ON DELETE CASCADE NOT NULL,
+  inventory_id UUID REFERENCES inventory(id) ON DELETE CASCADE NOT NULL,
   quantity NUMERIC NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(menu_item_id, ingredient_id)
+  UNIQUE(menu_item_id, inventory_id)
 );
 
 -- ORDERS TABLE
@@ -99,21 +99,21 @@ ALTER TABLE restaurants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE menu_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ingredients ENABLE ROW LEVEL SECURITY;
-ALTER TABLE recipe_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
+ALTER TABLE menu_item_ingredients ENABLE ROW LEVEL SECURITY;
 
 -- Public can read restaurants, menu items
 CREATE POLICY "Public read access" ON restaurants FOR SELECT USING (true);
 CREATE POLICY "Public menu read access" ON menu_items FOR SELECT USING (true);
-CREATE POLICY "Public ingredients for menu" ON ingredients FOR SELECT USING (true);
-CREATE POLICY "Public recipes for menu" ON recipe_items FOR SELECT USING (true);
+CREATE POLICY "Public inventory for menu" ON inventory FOR SELECT USING (true);
+CREATE POLICY "Public recipes for menu" ON menu_item_ingredients FOR SELECT USING (true);
 
 
 -- Owners can manage their own data
 CREATE POLICY "Owners can manage their own restaurant" ON restaurants FOR ALL USING (auth.uid() = owner_id);
 CREATE POLICY "Owners can manage their menu items" ON menu_items FOR ALL USING (restaurant_id IN (SELECT id FROM restaurants WHERE owner_id = auth.uid()));
-CREATE POLICY "Owners can manage their ingredients" ON ingredients FOR ALL USING (restaurant_id IN (SELECT id FROM restaurants WHERE owner_id = auth.uid()));
-CREATE POLICY "Owners can manage their recipe items" ON recipe_items FOR ALL USING (menu_item_id IN (SELECT mi.id FROM menu_items mi JOIN restaurants r ON mi.restaurant_id = r.id WHERE r.owner_id = auth.uid()));
+CREATE POLICY "Owners can manage their inventory" ON inventory FOR ALL USING (restaurant_id IN (SELECT id FROM restaurants WHERE owner_id = auth.uid()));
+CREATE POLICY "Owners can manage their recipe items" ON menu_item_ingredients FOR ALL USING (menu_item_id IN (SELECT mi.id FROM menu_items mi JOIN restaurants r ON mi.restaurant_id = r.id WHERE r.owner_id = auth.uid()));
 CREATE POLICY "Owners can manage their orders" ON orders FOR ALL USING (restaurant_id IN (SELECT id FROM restaurants WHERE owner_id = auth.uid()));
 CREATE POLICY "Owners can manage their reviews" ON reviews FOR ALL USING (restaurant_id IN (SELECT id FROM restaurants WHERE owner_id = auth.uid()));
 
@@ -131,23 +131,23 @@ CREATE POLICY "Public can create reviews" ON reviews FOR INSERT WITH CHECK (true
 CREATE OR REPLACE FUNCTION deduct_inventory_on_prepare()
 RETURNS TRIGGER AS $$
 DECLARE
-    item RECORD;
-    recipe_item RECORD;
+    order_item RECORD;
+    recipe_ingredient RECORD;
 BEGIN
     -- Only run when status changes TO 'preparing' from something else
     IF NEW.status = 'preparing' AND OLD.status <> 'preparing' THEN
         -- Loop through each item in the order_details JSONB array
-        FOR item IN SELECT * FROM jsonb_to_recordset(NEW.order_details) AS x(id UUID, quantity NUMERIC)
+        FOR order_item IN SELECT * FROM jsonb_to_recordset(NEW.order_details) AS x(id UUID, quantity NUMERIC)
         LOOP
             -- For each menu item in the order, find all its recipe ingredients
-            FOR recipe_item IN 
-                SELECT * FROM recipe_items 
-                WHERE menu_item_id = item.id
+            FOR recipe_ingredient IN 
+                SELECT * FROM menu_item_ingredients
+                WHERE menu_item_id = order_item.id
             LOOP
-                -- Deduct the required quantity from the ingredients table
-                UPDATE ingredients
-                SET current_stock = current_stock - (recipe_item.quantity * item.quantity)
-                WHERE id = recipe_item.ingredient_id;
+                -- Deduct the required quantity from the inventory table
+                UPDATE inventory
+                SET current_stock = current_stock - (recipe_ingredient.quantity * order_item.quantity)
+                WHERE id = recipe_ingredient.inventory_id;
             END LOOP;
         END LOOP;
     END IF;

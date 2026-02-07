@@ -2,36 +2,31 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../services/supabase';
 import { useAuth } from '../../hooks/useAuth';
-import { Ingredient, Restaurant } from '../../types';
+import { InventoryItem, Restaurant } from '../../types';
 import { cn } from '../../lib/utils';
 import Modal from '../ui/Modal';
 import { 
     Plus, 
     Archive, 
     AlertTriangle, 
-    TrendingUp, 
-    Package, 
     Trash2, 
     Edit, 
     Loader2, 
-    Zap, 
-    Scale, 
-    ShoppingCart,
     X
 } from 'lucide-react';
 
 const InventoryPage: React.FC = () => {
     const { user } = useAuth();
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-    const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+    const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
+    const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
     const [saving, setSaving] = useState(false);
     const [errorToast, setErrorToast] = useState<string | null>(null);
 
     // Form State
-    const [name, setName] = useState('');
+    const [itemName, setItemName] = useState('');
     const [stock, setStock] = useState('0');
     const [unit, setUnit] = useState('kg');
     const [cost, setCost] = useState('0');
@@ -39,7 +34,7 @@ const InventoryPage: React.FC = () => {
 
     const fetchInventory = useCallback(async () => {
         if (!user) return;
-        if (!restaurant) { // Only show full-page loader on first load
+        if (!restaurant) { 
             setLoading(true);
         }
         try {
@@ -53,11 +48,11 @@ const InventoryPage: React.FC = () => {
             }
             if (currentRestaurant) {
                 const { data, error } = await supabase
-                    .from('ingredients')
+                    .from('inventory')
                     .select('*')
                     .eq('restaurant_id', currentRestaurant.id)
-                    .order('name');
-                if (data) setIngredients(data);
+                    .order('item_name');
+                if (data) setInventoryItems(data);
                 if (error) throw error;
             }
         } catch (err: any) {
@@ -78,18 +73,18 @@ const InventoryPage: React.FC = () => {
     }, [errorToast]);
 
     const handleOpenAdd = () => {
-        setEditingIngredient(null);
-        setName(''); setStock('0'); setUnit('kg'); setCost('0'); setMinStock('1');
+        setEditingItem(null);
+        setItemName(''); setStock('0'); setUnit('kg'); setCost('0'); setMinStock('1');
         setIsModalOpen(true);
     };
 
-    const handleEdit = (ing: Ingredient) => {
-        setEditingIngredient(ing);
-        setName(ing.name);
-        setStock(ing.current_stock.toString());
-        setUnit(ing.unit);
-        setCost(ing.cost_per_unit.toString());
-        setMinStock((ing.min_stock_alert || 1).toString());
+    const handleEdit = (item: InventoryItem) => {
+        setEditingItem(item);
+        setItemName(item.item_name);
+        setStock(item.current_stock.toString());
+        setUnit(item.unit);
+        setCost(item.cost_price.toString());
+        setMinStock((item.min_stock_alert || 1).toString());
         setIsModalOpen(true);
     };
 
@@ -101,17 +96,17 @@ const InventoryPage: React.FC = () => {
 
         const upsertData = {
             restaurant_id: restaurant.id,
-            name,
+            item_name: itemName,
             current_stock: parseFloat(stock) || 0,
             unit,
-            cost_per_unit: parseFloat(cost) || 0,
+            cost_price: parseFloat(cost) || 0,
             min_stock_alert: parseFloat(minStock) || 0
         };
 
         try {
-            const { error } = editingIngredient
-                ? await supabase.from('ingredients').update(upsertData).eq('id', editingIngredient.id)
-                : await supabase.from('ingredients').insert(upsertData);
+            const { error } = editingItem
+                ? await supabase.from('inventory').update(upsertData).eq('id', editingItem.id)
+                : await supabase.from('inventory').insert(upsertData);
             
             if (error) throw error;
 
@@ -126,12 +121,12 @@ const InventoryPage: React.FC = () => {
     };
     
     const handleDelete = async (id: string) => {
-        if (!confirm('Discard this ingredient from the Wardrobe? This cannot be undone.')) return;
+        if (!confirm('Discard this item from the Wardrobe? This cannot be undone.')) return;
         setErrorToast(null);
         try {
-            const { error } = await supabase.from('ingredients').delete().eq('id', id);
+            const { error } = await supabase.from('inventory').delete().eq('id', id);
             if (error) throw error;
-            setIngredients(prev => prev.filter(i => i.id !== id));
+            setInventoryItems(prev => prev.filter(i => i.id !== id));
         } catch (err: any) {
             console.error('[Inventory] Delete Error:', err);
             setErrorToast(`Delete failed: ${err.message}`);
@@ -144,9 +139,6 @@ const InventoryPage: React.FC = () => {
             Scanning Mystic Wardrobe...
         </div>
     );
-
-    const totalValuation = ingredients.reduce((sum, ing) => sum + (ing.current_stock * ing.cost_per_unit), 0);
-    const lowStockCount = ingredients.filter(i => i.current_stock <= (i.min_stock_alert || 0)).length;
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -176,29 +168,28 @@ const InventoryPage: React.FC = () => {
                 </button>
             </div>
 
-            {/* Main Inventory Table */}
             <div className="bg-slate-900/40 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
                 <table className="min-w-full divide-y divide-white/5">
                     <thead className="bg-slate-800/50">
                         <tr>
-                            <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Ingredient Name</th>
+                            <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Item Name</th>
                             <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Current Stock</th>
                             <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Cost/Unit</th>
                             <th className="px-6 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Manage</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                        {ingredients.map((ing) => {
-                            const isLow = ing.current_stock <= (ing.min_stock_alert || 0);
+                        {inventoryItems.map((item) => {
+                            const isLow = item.current_stock <= (item.min_stock_alert || 0);
                             return (
-                                <tr key={ing.id} className={cn("hover:bg-white/[0.02] transition-colors group", isLow && "bg-indigo-500/5")}>
-                                    <td className="px-6 py-5"><div className="text-sm font-black text-white">{ing.name}</div></td>
-                                    <td className="px-6 py-5"><div className={cn("text-lg font-black", isLow ? "text-indigo-400" : "text-emerald-400")}>{ing.current_stock} <span className="text-[10px] uppercase">{ing.unit}</span></div></td>
-                                    <td className="px-6 py-5 text-sm font-bold text-slate-400">₹{ing.cost_per_unit}</td>
+                                <tr key={item.id} className={cn("hover:bg-white/[0.02] transition-colors group", isLow && "bg-indigo-500/5")}>
+                                    <td className="px-6 py-5"><div className="text-sm font-black text-white">{item.item_name}</div></td>
+                                    <td className="px-6 py-5"><div className={cn("text-lg font-black", isLow ? "text-indigo-400" : "text-emerald-400")}>{item.current_stock} <span className="text-[10px] uppercase">{item.unit}</span></div></td>
+                                    <td className="px-6 py-5 text-sm font-bold text-slate-400">₹{item.cost_price}</td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex justify-end gap-2">
-                                            <button onClick={() => handleEdit(ing)} className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-white/5"><Edit size={16} /></button>
-                                            <button onClick={() => handleDelete(ing.id)} className="text-red-500/50 hover:text-red-500 p-2 rounded-lg hover:bg-white/5"><Trash2 size={16} /></button>
+                                            <button onClick={() => handleEdit(item)} className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-white/5"><Edit size={16} /></button>
+                                            <button onClick={() => handleDelete(item.id)} className="text-red-500/50 hover:text-red-500 p-2 rounded-lg hover:bg-white/5"><Trash2 size={16} /></button>
                                         </div>
                                     </td>
                                 </tr>
@@ -206,12 +197,12 @@ const InventoryPage: React.FC = () => {
                         })}
                     </tbody>
                 </table>
-                 {ingredients.length === 0 && <div className="p-20 text-center text-slate-500 font-black uppercase text-xs tracking-widest">No stock records found.</div>}
+                 {inventoryItems.length === 0 && <div className="p-20 text-center text-slate-500 font-black uppercase text-xs tracking-widest">No stock records found.</div>}
             </div>
 
-            <Modal title={editingIngredient ? "Edit Material" : "New Procurement"} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+            <Modal title={editingItem ? "Edit Material" : "New Procurement"} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <input value={name} onChange={e => setName(e.target.value)} required className="w-full bg-slate-800 p-3 rounded-xl border border-white/5 text-white outline-none focus:border-indigo-500" placeholder="e.g. Arabica Beans" />
+                    <input value={itemName} onChange={e => setItemName(e.target.value)} required className="w-full bg-slate-800 p-3 rounded-xl border border-white/5 text-white outline-none focus:border-indigo-500" placeholder="e.g. Arabica Beans" />
                     <div className="grid grid-cols-2 gap-4">
                         <input type="number" step="0.01" value={stock} onChange={e => setStock(e.target.value)} required className="w-full bg-slate-800 p-3 rounded-xl border border-white/5 text-white outline-none focus:border-indigo-500" placeholder="Stock Level"/>
                         <select value={unit} onChange={e => setUnit(e.target.value)} className="w-full bg-slate-800 p-3 rounded-xl border border-white/5 text-white outline-none focus:border-indigo-500">
@@ -223,7 +214,7 @@ const InventoryPage: React.FC = () => {
                          <input type="number" step="1" value={minStock} onChange={e => setMinStock(e.target.value)} required className="w-full bg-slate-800 p-3 rounded-xl border border-white/5 text-white outline-none focus:border-indigo-500" placeholder="Alert Threshold"/>
                     </div>
                     <button type="submit" disabled={saving} className="w-full bg-indigo-600 text-white font-black uppercase tracking-widest py-3 rounded-xl shadow-glow-indigo mt-4 flex items-center justify-center gap-2">
-                        {saving ? <Loader2 className="animate-spin" size={16} /> : (editingIngredient ? 'Update Record' : 'Log Ingredient')}
+                        {saving ? <Loader2 className="animate-spin" size={16} /> : (editingItem ? 'Update Record' : 'Log Ingredient')}
                     </button>
                 </form>
             </Modal>
