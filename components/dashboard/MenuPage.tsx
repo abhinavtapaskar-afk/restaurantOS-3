@@ -84,6 +84,7 @@ const MenuPage: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [recipeModalItem, setRecipeModalItem] = useState<MenuItem | null>(null);
     const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+    const [deletingItem, setDeletingItem] = useState<MenuItem | null>(null);
     const [errorToast, setErrorToast] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     
@@ -99,7 +100,7 @@ const MenuPage: React.FC = () => {
         try {
             let currentRestaurant = restaurant;
             if(!currentRestaurant) {
-              const { data: restaurantData } = await supabase.from('restaurants').select('id').eq('owner_id', user.id).single();
+              const { data: restaurantData } = await supabase.from('restaurants').select('*').eq('owner_id', user.id).single();
               if (restaurantData) {
                   setRestaurant(restaurantData as Restaurant);
                   currentRestaurant = restaurantData as Restaurant;
@@ -141,6 +142,22 @@ const MenuPage: React.FC = () => {
         finally { setSaving(false); }
     };
     
+    const handleDelete = async () => {
+        if (!deletingItem) return;
+        setSaving(true);
+        setErrorToast(null);
+        try {
+            const { error } = await supabase.from('menu_items').delete().eq('id', deletingItem.id);
+            if (error) throw error;
+            setMenuItems(prev => prev.filter(item => item.id !== deletingItem.id));
+            setDeletingItem(null);
+        } catch (err: any) {
+            setErrorToast(`Delete failed: ${err.message}`);
+        } finally {
+            setSaving(false);
+        }
+    };
+    
     if (loading) return <div className="p-12 text-center text-slate-500 font-black uppercase tracking-widest animate-pulse">Loading Menu Studio...</div>;
 
     return (
@@ -166,12 +183,15 @@ const MenuPage: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                 {menuItems.map(item => (
-                    <div key={item.id} className="bg-slate-800/50 rounded-lg border border-slate-700 p-4 space-y-2">
-                        <h3 className="font-bold text-lg text-white truncate">{item.name}</h3>
-                        <p className="text-emerald-400 font-black text-xl">₹{item.price}</p>
-                        <div className="flex justify-end gap-2 pt-2">
-                             <button onClick={() => setRecipeModalItem(item)} className="text-indigo-400 p-1.5 rounded-md hover:bg-white/5"><Calculator size={16} /></button>
-                             <button onClick={() => { setEditingItem(item); setName(item.name); setPrice(item.price.toString()); setCategory(item.category || ''); setIsModalOpen(true); }} className="text-slate-400 p-1.5 rounded-md hover:bg-white/5"><Edit size={16} /></button>
+                    <div key={item.id} className="bg-slate-800/50 rounded-lg border border-slate-700 p-4 flex flex-col group">
+                        <div className="flex-grow mb-4">
+                            <h3 className="font-bold text-lg text-white truncate">{item.name}</h3>
+                            <p className="text-emerald-400 font-black text-xl">₹{item.price}</p>
+                        </div>
+                        <div className="flex justify-end gap-2 pt-3 border-t border-white/5">
+                             <button onClick={() => setRecipeModalItem(item)} className="text-indigo-400 p-1.5 rounded-md hover:bg-white/5 transition-colors"><Calculator size={16} /></button>
+                             <button onClick={() => { setEditingItem(item); setName(item.name); setPrice(item.price.toString()); setCategory(item.category || ''); setIsModalOpen(true); }} className="text-slate-400 p-1.5 rounded-md hover:bg-white/5 transition-colors"><Edit size={16} /></button>
+                             <button onClick={() => setDeletingItem(item)} className="text-red-500/50 hover:text-red-500 p-1.5 rounded-md hover:bg-white/5 transition-colors"><Trash2 size={16} /></button>
                         </div>
                     </div>
                 ))}
@@ -196,6 +216,35 @@ const MenuPage: React.FC = () => {
                     onRefresh={fetchData}
                     onError={setErrorToast}
                 />
+            )}
+
+            {deletingItem && (
+                <Modal 
+                    title="Confirm Deletion"
+                    isOpen={!!deletingItem}
+                    onClose={() => setDeletingItem(null)}
+                >
+                    <div className="text-center">
+                        <p className="text-slate-300 mb-6">
+                            Are you sure you want to remove <span className="font-bold text-white">"{deletingItem.name}"</span> from {restaurant?.name || 'your menu'}?
+                        </p>
+                        <div className="flex justify-center gap-4">
+                            <button 
+                                onClick={() => setDeletingItem(null)}
+                                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-6 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleDelete}
+                                disabled={saving}
+                                className="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                {saving ? <Loader2 className="animate-spin" size={16} /> : 'Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
             )}
         </div>
     );
